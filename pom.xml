@@ -7,7 +7,7 @@
   <groupId>org.apache.lucene.mahout</groupId>
   <artifactId>mahout</artifactId>
   <packaging>pom</packaging>
-  <version>0.1-SNAPSHOT</version>
+  <version>0.1</version>
   <name>Apache Lucene Mahout</name>
   <description>Scalable machine learning libraries</description>
 
