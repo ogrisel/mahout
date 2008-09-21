@@ -52,6 +52,8 @@
         includes="*.jar"/>
     </tar>
 
+    <!-- unpack tarball and create zipball -->
+
     <property name="dest" value="build"/>
     <mkdir dir="${dest}"/>
         
@@ -63,11 +65,23 @@
         prefix="${fullnamever}"/>
     </zip>
 
-    <!-- TODO: arm tgz and zip with gpg and create md5 sums -->
-
-    <!-- TODO: create maven artifacts -->
-
     <delete dir="${dest}" />
+
+    <!-- pgp arm tgz and zip -->
+    <exec command="gpg --armor --output ${dist}/${fullnamever}.tgz.asc --detach-sig ${dist}/${fullnamever}.tgz"/>
+    <exec command="gpg --armor --output ${dist}/${fullnamever}.zip.asc --detach-sig ${dist}/${fullnamever}.zip"/>
+
+    <!-- create md5 sum for tgz and zip -->
+    <exec command="openssl dgst -md5 -out ${dist}/${fullnamever}.tgz.md5 ${dist}/${fullnamever}.tgz"/>
+    <exec command="openssl dgst -md5 -out ${dist}/${fullnamever}.zip.md5 ${dist}/${fullnamever}.zip"/>
+
+    <!-- create maven artifacts -->
+    <exec command="mvn -Dtest=false deploy"/>
+    <mkdir dir="${dist}/maven"/>
+    <copy todir="${dist}/maven">
+      <fileset dir="core/dist/maven"/>
+    </copy>
+
 
   </target>
 
