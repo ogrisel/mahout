@@ -41,11 +41,39 @@
               <goal>test-jar</goal>
             </goals>
           </execution>
-
-
         </executions>
       </plugin>
-
+      <plugin>
+        <artifactId>maven-resources-plugin</artifactId>
+        <version>2.3</version>
+        <configuration>
+          <encoding>UTF-8</encoding>
+        </configuration>
+        <executions>
+          <execution>
+            <id>copy-resources</id>
+            <phase>process-resources</phase>
+            <goals>
+              <goal>copy-resources</goal>
+            </goals>
+            <configuration>
+              <outputDirectory>
+                ${project.build.directory}/classes/META-INF
+              </outputDirectory>
+              <resources>
+                <resource>
+                  <directory>..</directory>
+                  <includes>
+                    <include>README.txt</include>
+                    <include>NOTICE.txt</include>
+                    <include>LICENSE.txt</include>
+                  </includes>
+                </resource>
+              </resources>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
 
       <!-- Copy dependencies with no official Maven artifacts from libs to local Maven repository -->
       <plugin>
@@ -538,5 +566,6 @@
     <connection>scm:svn:https://svn.apache.org/repos/asf/lucene/mahout/tags/mahout-0.1-core</connection>
     <developerConnection>scm:svn:https://svn.apache.org/repos/asf/lucene/mahout/tags/mahout-0.1-core
     </developerConnection>
+    <url>scm:svn:https://svn.apache.org/repos/asf/lucene/mahout/tags/mahout-0.1-core</url>
   </scm>
 </project>
