@@ -57,7 +57,7 @@ public final class MemoryDiffStorage implements DiffStorage {
   private final boolean stdDevWeighted;
   private final boolean compactAverages;
   private final long maxEntries;
-  private final Map<Object, Map<Object, RunningAverage>> averageDiffs;
+  private final FastMap<Object, FastMap<Object, RunningAverage>> averageDiffs;
   private final Map<Object, RunningAverage> averageItemPref;
   private final ReadWriteLock buildAverageDiffsLock;
   private final RefreshHelper refreshHelper;
@@ -103,7 +103,7 @@ public final class MemoryDiffStorage implements DiffStorage {
     this.stdDevWeighted = stdDevWeighted == Weighting.WEIGHTED;
     this.compactAverages = compactAverages;
     this.maxEntries = maxEntries;
-    this.averageDiffs = new FastMap<Object, Map<Object, RunningAverage>>();
+    this.averageDiffs = new FastMap<Object, FastMap<Object, RunningAverage>>();
     this.averageItemPref = new FastMap<Object, RunningAverage>();
     this.buildAverageDiffsLock = new ReentrantReadWriteLock();
     this.refreshHelper = new RefreshHelper(new Callable<Object>() {
@@ -171,7 +171,7 @@ public final class MemoryDiffStorage implements DiffStorage {
     }
     try {
       buildAverageDiffsLock.readLock().lock();
-      for (Map.Entry<Object, Map<Object, RunningAverage>> entry : averageDiffs.entrySet()) {
+      for (Map.Entry<Object, FastMap<Object, RunningAverage>> entry : averageDiffs.entrySet()) {
         boolean matchesItemID1 = itemID.equals(entry.getKey());
         for (Map.Entry<Object, RunningAverage> entry2 : entry.getValue().entrySet()) {
           RunningAverage average = entry2.getValue();
@@ -222,22 +222,26 @@ public final class MemoryDiffStorage implements DiffStorage {
         averageCount = processOneUser(averageCount, user);
       }
 
-      // Go back and prune inconsequential diffs. "Inconsequential" means, here, an average
-      // so small (< 1 / numItems^3) that it contributes very little to computations
-      double numItems = (double) dataModel.getNumItems();
-      double threshold = 1.0 / numItems / numItems / numItems;
-      for (Iterator<Map<Object, RunningAverage>> it1 = averageDiffs.values().iterator(); it1.hasNext();) {
-        Map<Object, RunningAverage> map = it1.next();
-        for (Iterator<RunningAverage> it2 = map.values().iterator(); it2.hasNext();) {
+      // Go back and prune inconsequential diffs. "Inconsequential" means, here, only represented by one
+      // data point, so possibly unreliable
+      Iterator<FastMap<Object, RunningAverage>> it1 = averageDiffs.values().iterator();
+      while (it1.hasNext()) {
+        FastMap<Object, RunningAverage> map = it1.next();
+        Iterator<RunningAverage> it2 = map.values().iterator();
+        while (it2.hasNext()) {
           RunningAverage average = it2.next();
-          if (Math.abs(average.getAverage()) < threshold) {
+          if (average.getCount() <= 1) {
             it2.remove();
           }
         }
         if (map.isEmpty()) {
           it1.remove();
+        } else {
+          map.rehash();
         }
       }
+
+      averageDiffs.rehash();
 
     } finally {
       buildAverageDiffsLock.writeLock().unlock();
@@ -253,7 +257,7 @@ public final class MemoryDiffStorage implements DiffStorage {
       Preference prefA = userPreferences[i];
       double prefAValue = prefA.getValue();
       Object itemIDA = prefA.getItem().getID();
-      Map<Object, RunningAverage> aMap = averageDiffs.get(itemIDA);
+      FastMap<Object, RunningAverage> aMap = averageDiffs.get(itemIDA);
       if (aMap == null) {
         aMap = new FastMap<Object, RunningAverage>();
         averageDiffs.put(itemIDA, aMap);

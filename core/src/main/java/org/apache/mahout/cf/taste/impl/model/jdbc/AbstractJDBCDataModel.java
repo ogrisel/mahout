@@ -70,7 +70,7 @@ import java.util.NoSuchElementException;
  */
 public abstract class AbstractJDBCDataModel implements JDBCDataModel {
 
-  private static final Logger log = LoggerFactory.getLogger(AbstractJDBCDataModel.class);
+  static final Logger log = LoggerFactory.getLogger(AbstractJDBCDataModel.class);
 
   public static final String DEFAULT_DATASOURCE_NAME = "jdbc/taste";
   public static final String DEFAULT_PREFERENCE_TABLE = "taste_preferences";
@@ -244,7 +244,7 @@ public abstract class AbstractJDBCDataModel implements JDBCDataModel {
   }
 
   @Override
-  public final Iterable<? extends User> getUsers() throws TasteException {
+  public Iterable<? extends User> getUsers() throws TasteException {
     log.debug("Retrieving all users...");
     return new IteratorIterable<User>(new ResultSetUserIterator(dataSource, getUsersSQL));
   }
@@ -253,7 +253,7 @@ public abstract class AbstractJDBCDataModel implements JDBCDataModel {
    * @throws NoSuchUserException if there is no such user
    */
   @Override
-  public final User getUser(Object id) throws TasteException {
+  public User getUser(Object id) throws TasteException {
 
     log.debug("Retrieving user ID '{}'", id);
 
@@ -292,18 +292,18 @@ public abstract class AbstractJDBCDataModel implements JDBCDataModel {
   }
 
   @Override
-  public final Iterable<? extends Item> getItems() throws TasteException {
+  public Iterable<? extends Item> getItems() throws TasteException {
     log.debug("Retrieving all items...");
     return new IteratorIterable<Item>(new ResultSetItemIterator(dataSource, getItemsSQL));
   }
 
   @Override
-  public final Item getItem(Object id) throws TasteException {
+  public Item getItem(Object id) throws TasteException {
     return getItem(id, false);
   }
 
   @Override
-  public final Item getItem(Object id, boolean assumeExists) throws TasteException {
+  public Item getItem(Object id, boolean assumeExists) throws TasteException {
 
     if (assumeExists) {
       return buildItem((String) id);
@@ -336,12 +336,12 @@ public abstract class AbstractJDBCDataModel implements JDBCDataModel {
   }
 
   @Override
-  public final Iterable<? extends Preference> getPreferencesForItem(Object itemID) throws TasteException {
+  public Iterable<? extends Preference> getPreferencesForItem(Object itemID) throws TasteException {
     return doGetPreferencesForItem(itemID);
   }
 
   @Override
-  public final Preference[] getPreferencesForItemAsArray(Object itemID) throws TasteException {
+  public Preference[] getPreferencesForItemAsArray(Object itemID) throws TasteException {
     List<? extends Preference> list = doGetPreferencesForItem(itemID);
     return list.toArray(new Preference[list.size()]);
   }
@@ -376,17 +376,17 @@ public abstract class AbstractJDBCDataModel implements JDBCDataModel {
   }
 
   @Override
-  public final int getNumItems() throws TasteException {
+  public int getNumItems() throws TasteException {
     return getNumThings("items", getNumItemsSQL);
   }
 
   @Override
-  public final int getNumUsers() throws TasteException {
+  public int getNumUsers() throws TasteException {
     return getNumThings("users", getNumUsersSQL);
   }
 
   @Override
-  public final int getNumUsersWithPreferenceFor(Object... itemIDs) throws TasteException {
+  public int getNumUsersWithPreferenceFor(Object... itemIDs) throws TasteException {
     if (itemIDs == null) {
       throw new IllegalArgumentException("itemIDs is null");
     }
@@ -394,11 +394,9 @@ public abstract class AbstractJDBCDataModel implements JDBCDataModel {
     if (length == 0 || length > 2) {
       throw new IllegalArgumentException("Illegal number of item IDs: " + length);
     }
-    if (length == 1) {
-      return getNumThings("user preferring item", getNumPreferenceForItemSQL, itemIDs);
-    } else {
-      return getNumThings("user preferring items", getNumPreferenceForItemsSQL, itemIDs);
-    }
+    return length == 1 ?
+        getNumThings("user preferring item", getNumPreferenceForItemSQL, itemIDs) :
+        getNumThings("user preferring items", getNumPreferenceForItemsSQL, itemIDs);
   }
 
 
@@ -428,7 +426,7 @@ public abstract class AbstractJDBCDataModel implements JDBCDataModel {
   }
 
   @Override
-  public final void setPreference(Object userID, Object itemID, double value)
+  public void setPreference(Object userID, Object itemID, double value)
           throws TasteException {
     if (userID == null || itemID == null) {
       throw new IllegalArgumentException("userID or itemID is null");
@@ -465,7 +463,7 @@ public abstract class AbstractJDBCDataModel implements JDBCDataModel {
   }
 
   @Override
-  public final void removePreference(Object userID, Object itemID)
+  public void removePreference(Object userID, Object itemID)
           throws TasteException {
     if (userID == null || itemID == null) {
       throw new IllegalArgumentException("userID or itemID is null");
@@ -495,7 +493,7 @@ public abstract class AbstractJDBCDataModel implements JDBCDataModel {
   }
 
   @Override
-  public final void refresh(Collection<Refreshable> alreadyRefreshed) {
+  public void refresh(Collection<Refreshable> alreadyRefreshed) {
     // do nothing
   }
 

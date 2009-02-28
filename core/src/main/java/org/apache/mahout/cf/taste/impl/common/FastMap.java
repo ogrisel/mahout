@@ -20,12 +20,12 @@ package org.apache.mahout.cf.taste.impl.common;
 import java.util.AbstractCollection;
 import java.util.AbstractSet;
 import java.util.Arrays;
-import java.util.BitSet;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
+import java.io.Serializable;
 
 /**
  * <p>This is an optimized {@link Map} implementation, based on algorithms described in Knuth's
@@ -39,7 +39,7 @@ import java.util.Set;
  *
  * <p>This implementation does not allow <code>null</code> as a key or value.</p>
  */
-public final class FastMap<K, V> implements Map<K, V> {
+public final class FastMap<K, V> implements Map<K, V>, Serializable {
 
   public static final int NO_MAX_SIZE = Integer.MAX_VALUE;
 
@@ -52,11 +52,9 @@ public final class FastMap<K, V> implements Map<K, V> {
   private V[] values;
   private int numEntries;
   private int numSlotsUsed;
-  private Set<Entry<K, V>> entrySet;
-  private Set<K> keySet;
-  private Collection<V> valueCollection;
   private int maxSize;
-  private final BitSet recentlyAccessed;
+  private BitSet recentlyAccessed;
+  private final boolean countingAccesses;
 
   /**
    * Creates a new {@link FastMap} with default capacity.
@@ -78,7 +76,7 @@ public final class FastMap<K, V> implements Map<K, V> {
    *  {@link RandomUtils#MAX_INT_SMALLER_TWIN_PRIME}
    */
   @SuppressWarnings("unchecked")
-  public FastMap(int size, int maxSize) throws IllegalArgumentException {
+  public FastMap(int size, int maxSize) {
     if (size < 1) {
       throw new IllegalArgumentException("size must be at least 1");
     }
@@ -92,7 +90,8 @@ public final class FastMap<K, V> implements Map<K, V> {
     keys = (K[]) new Object[hashSize];
     values = (V[]) new Object[hashSize];
     this.maxSize = maxSize;
-    this.recentlyAccessed = maxSize == Integer.MAX_VALUE ? null : new BitSet(maxSize);
+    this.countingAccesses = maxSize != Integer.MAX_VALUE;
+    this.recentlyAccessed = countingAccesses ? new BitSet(hashSize) : null;
   }
 
   /**
@@ -135,7 +134,7 @@ public final class FastMap<K, V> implements Map<K, V> {
       return null;
     }
     int index = find(key);
-    if (recentlyAccessed != null) {
+    if (countingAccesses) {
       recentlyAccessed.set(index);
     }
     return values[index];
@@ -177,9 +176,8 @@ public final class FastMap<K, V> implements Map<K, V> {
     if (key == null || value == null) {
       throw new NullPointerException();
     }
-    int hashSize = keys.length;
     // If less than half the slots are open, let's clear it up
-    if (numSlotsUsed >= hashSize >> 1) {
+    if (numSlotsUsed >= keys.length >> 1) {
       // If over half the slots used are actual entries, let's grow
       if (numEntries >= numSlotsUsed >> 1) {
         growAndRehash();
@@ -192,7 +190,7 @@ public final class FastMap<K, V> implements Map<K, V> {
     int index = find(key);
     if (keys[index] == null) {
       // If size is limited,
-      if (recentlyAccessed != null && numEntries >= maxSize) {
+      if (countingAccesses && numEntries >= maxSize) {
         // and we're too large, clear some old-ish entry
         clearStaleEntry(index);
       }
@@ -210,11 +208,10 @@ public final class FastMap<K, V> implements Map<K, V> {
 
   private void clearStaleEntry(int index) {
     while (true) {
-      int hashSize = keys.length;
       K currentKey;
       do {
         if (index == 0) {
-          index = hashSize - 1;
+          index = keys.length - 1;
         } else {
           index--;
         }
@@ -264,45 +261,35 @@ public final class FastMap<K, V> implements Map<K, V> {
     numSlotsUsed = 0;
     Arrays.fill(keys, null);
     Arrays.fill(values, null);
-    if (recentlyAccessed != null) {
+    if (countingAccesses) {
       recentlyAccessed.clear();
     }
   }
 
   @Override
   public Set<K> keySet() {
-    if (keySet == null) {
-      keySet = new KeySet();
-    }
-    return keySet;
+    return new KeySet();
   }
 
   @Override
   public Collection<V> values() {
-    if (valueCollection == null) {
-      valueCollection = new ValueCollection();
-    }
-    return valueCollection;
+    return new ValueCollection();
   }
 
   @Override
   public Set<Entry<K, V>> entrySet() {
-    if (entrySet == null) {
-      entrySet = new EntrySet();
-    }
-    return entrySet;
+    return new EntrySet();
   }
 
   public void rehash() {
-    rehash(keys.length);
+    rehash(RandomUtils.nextTwinPrime(numEntries << 1));
   }
 
   private void growAndRehash() {
-    int hashSize = keys.length;
-    if (hashSize >= RandomUtils.MAX_INT_SMALLER_TWIN_PRIME >> 1) {
+    if (keys.length >= RandomUtils.MAX_INT_SMALLER_TWIN_PRIME >> 1) {
       throw new IllegalStateException("Can't grow any more");
     }
-    rehash(RandomUtils.nextTwinPrime(2 * hashSize));
+    rehash(RandomUtils.nextTwinPrime(keys.length << 1));
   }
 
   @SuppressWarnings("unchecked")
@@ -311,8 +298,8 @@ public final class FastMap<K, V> implements Map<K, V> {
     V[] oldValues = values;
     numEntries = 0;
     numSlotsUsed = 0;
-    if (recentlyAccessed != null) {
-      recentlyAccessed.clear();
+    if (countingAccesses) {
+      recentlyAccessed = new BitSet(newHashSize);
     }
     keys = (K[]) new Object[newHashSize];
     values = (V[]) new Object[newHashSize];
@@ -325,7 +312,7 @@ public final class FastMap<K, V> implements Map<K, V> {
     }
   }
 
-  private void iteratorRemove(int lastNext) {
+  void iteratorRemove(int lastNext) {
     if (lastNext >= values.length) {
       throw new NoSuchElementException();
     }
@@ -351,7 +338,7 @@ public final class FastMap<K, V> implements Map<K, V> {
 
     @Override
     public boolean contains(Object o) {
-      return FastMap.this.containsKey(o);
+      return containsKey(o);
     }
 
     @Override
@@ -389,7 +376,7 @@ public final class FastMap<K, V> implements Map<K, V> {
       FastMap.this.clear();
     }
 
-    final class MapEntry implements Entry<K, V> {
+    private final class MapEntry implements Entry<K, V> {
 
       private final int index;
 
@@ -419,7 +406,7 @@ public final class FastMap<K, V> implements Map<K, V> {
       }
     }
 
-    final class EntryIterator implements Iterator<Entry<K, V>> {
+    private final class EntryIterator implements Iterator<Entry<K, V>> {
 
       private int position;
       private int lastNext = -1;
@@ -471,7 +458,7 @@ public final class FastMap<K, V> implements Map<K, V> {
 
     @Override
     public boolean contains(Object o) {
-      return FastMap.this.containsKey(o);
+      return containsKey(o);
     }
 
     @Override
@@ -509,7 +496,7 @@ public final class FastMap<K, V> implements Map<K, V> {
       FastMap.this.clear();
     }
 
-    final class KeyIterator implements Iterator<K> {
+    private final class KeyIterator implements Iterator<K> {
 
       private int position;
       private int lastNext = -1;
@@ -561,7 +548,7 @@ public final class FastMap<K, V> implements Map<K, V> {
 
     @Override
     public boolean contains(Object o) {
-      return FastMap.this.containsValue(o);
+      return containsValue(o);
     }
 
     @Override
@@ -599,7 +586,7 @@ public final class FastMap<K, V> implements Map<K, V> {
       FastMap.this.clear();
     }
 
-    final class ValueIterator implements Iterator<V> {
+    private final class ValueIterator implements Iterator<V> {
 
       private int position;
       private int lastNext = -1;
