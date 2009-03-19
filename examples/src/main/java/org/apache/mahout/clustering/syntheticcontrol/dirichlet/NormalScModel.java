@@ -14,11 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.mahout.clustering.dirichlet.models;
+package org.apache.mahout.clustering.syntheticcontrol.dirichlet;
 
+import org.apache.mahout.clustering.dirichlet.models.Model;
 import org.apache.mahout.matrix.Vector;
 
-public class NormalModel implements Model<Vector> {
+public class NormalScModel implements Model<Vector> {
 
   private static final double sqrt2pi = Math.sqrt(2.0 * Math.PI);
 
@@ -29,13 +30,15 @@ public class NormalModel implements Model<Vector> {
 
   // the observation statistics, initialized by the first observation
   int s0 = 0;
+
   Vector s1;
+
   Vector s2;
 
-  public NormalModel() {
+  public NormalScModel() {
   }
 
-  public NormalModel(Vector mean, double sd) {
+  public NormalScModel(Vector mean, double sd) {
     this.mean = mean;
     this.sd = sd;
     this.s0 = 0;
@@ -47,8 +50,8 @@ public class NormalModel implements Model<Vector> {
    * Return an instance with the same parameters
    * @return an NormalModel
    */
-  NormalModel sample() {
-    return new NormalModel(mean, sd);
+  NormalScModel sample() {
+    return new NormalScModel(mean, sd);
   }
 
   @Override
@@ -69,16 +72,17 @@ public class NormalModel implements Model<Vector> {
     if (s0 == 0)
       return;
     mean = s1.divide(s0);
-    // the average of the two component stds
+    //TODO: is this the average of the 60 component stds??
     if (s0 > 1)
-      sd = Math.sqrt(s2.times(s0).minus(s1.times(s1)).zSum() / 2) / s0;
+      sd = Math.sqrt(s2.times(s0).minus(s1.times(s1)).zSum() / (60 * 60)) / s0;
     else
       sd = Double.MIN_VALUE;
   }
 
   @Override
+  // TODO: need to revisit this for reasonableness
   public double pdf(Vector x) {
-    assert x.size() == 2;
+    assert x.size() == 60;
     double sd2 = sd * sd;
     double exp = -(x.dot(x) - 2 * x.dot(mean) + mean.dot(mean)) / (2 * sd2);
     double ex = Math.exp(exp);

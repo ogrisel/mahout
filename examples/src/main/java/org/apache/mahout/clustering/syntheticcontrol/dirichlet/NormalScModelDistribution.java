@@ -1,4 +1,4 @@
-package org.apache.mahout.clustering.dirichlet.models;
+package org.apache.mahout.clustering.syntheticcontrol.dirichlet;
 
 /**
  * Licensed to the Apache Software Foundation (ASF) under one or more
@@ -17,6 +17,9 @@ package org.apache.mahout.clustering.dirichlet.models;
  * limitations under the License.
  */
 
+import org.apache.mahout.clustering.dirichlet.UncommonDistributions;
+import org.apache.mahout.clustering.dirichlet.models.Model;
+import org.apache.mahout.clustering.dirichlet.models.ModelDistribution;
 import org.apache.mahout.matrix.DenseVector;
 import org.apache.mahout.matrix.Vector;
 
@@ -24,21 +27,25 @@ import org.apache.mahout.matrix.Vector;
  * An implementation of the ModelDistribution interface suitable for testing the
  * DirichletCluster algorithm. Uses a Normal Distribution
  */
-public class NormalModelDistribution implements ModelDistribution<Vector> {
+public class NormalScModelDistribution implements ModelDistribution<Vector> {
 
   @Override
   public Model<Vector>[] sampleFromPrior(int howMany) {
-    Model<Vector>[] result = new NormalModel[howMany];
-    for (int i = 0; i < howMany; i++)
-      result[i] = new NormalModel(new DenseVector(2), 1);
+    Model<Vector>[] result = new NormalScModel[howMany];
+    for (int i = 0; i < howMany; i++) {
+      DenseVector mean = new DenseVector(60);
+      for (int j = 0; j < 60; j++)
+        mean.set(j, UncommonDistributions.rNorm(30, 0.5));
+      result[i] = new NormalScModel(mean, 1);
+    }
     return result;
   }
 
   @Override
   public Model<Vector>[] sampleFromPosterior(Model<Vector>[] posterior) {
-    Model<Vector>[] result = new NormalModel[posterior.length];
+    Model<Vector>[] result = new NormalScModel[posterior.length];
     for (int i = 0; i < posterior.length; i++) {
-      NormalModel m = (NormalModel) posterior[i];
+      NormalScModel m = (NormalScModel) posterior[i];
       result[i] = m.sample();
     }
     return result;
