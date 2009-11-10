@@ -119,7 +119,6 @@
               <createChecksum>true</createChecksum>
             </configuration>
           </execution>
-
           <execution>
             <id>create-jets3t-artifact</id>
             <phase>validate</phase>
@@ -136,8 +135,6 @@
               <createChecksum>true</createChecksum>
             </configuration>
           </execution>
-          <!-- watchmaker -->
-
           <execution>
             <id>create-watchmaker-framework-artifact</id>
             <phase>validate</phase>
@@ -154,7 +151,6 @@
               <createChecksum>true</createChecksum>
             </configuration>
           </execution>
-
           <execution>
             <id>create-watchmaker-swing-artifact</id>
             <phase>validate</phase>
@@ -171,7 +167,6 @@
               <createChecksum>true</createChecksum>
             </configuration>
           </execution>
-
           <execution>
             <id>create-uncommons-math-artifact</id>
             <phase>validate</phase>
@@ -231,7 +226,6 @@
               <generatePom>true</generatePom>
             </configuration>
           </execution>
-
           <execution>
             <id>create-kfs-artifact</id>
             <phase>deploy</phase>
@@ -247,7 +241,6 @@
               <generatePom>true</generatePom>
             </configuration>
           </execution>
-
           <execution>
             <id>create-jets3t-artifact</id>
             <phase>deploy</phase>
@@ -263,9 +256,6 @@
               <generatePom>true</generatePom>
             </configuration>
           </execution>
-
-          <!-- watchmaker -->
-
           <execution>
             <id>create-watchmaker-framework-artifact</id>
             <phase>deploy</phase>
@@ -281,7 +271,6 @@
               <generatePom>true</generatePom>
             </configuration>
           </execution>
-
           <execution>
             <id>create-watchmaker-swing-artifact</id>
             <phase>deploy</phase>
@@ -297,7 +286,6 @@
               <generatePom>true</generatePom>
             </configuration>
           </execution>
-
           <execution>
             <id>create-uncommons-math-artifact</id>
             <phase>deploy</phase>
@@ -326,7 +314,6 @@
               <packaging>jar</packaging>
               <version>2.0-mahout</version>
               <generatePom>true</generatePom>
-
             </configuration>
           </execution>
         </executions>
