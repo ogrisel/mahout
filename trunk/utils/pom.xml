@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>org.apache.mahout</groupId>
+    <artifactId>mahout-parent</artifactId>
+    <version>0.2</version>
+    <relativePath>../maven</relativePath>
+  </parent>
+
+  <groupId>org.apache.mahout</groupId>
+  <artifactId>mahout-utils</artifactId>
+  <version>0.2</version>
+  <name>Mahout utilities</name>
+  <description>Utilities for preparing content into formats for Mahout.</description>
+
+  <packaging>jar</packaging>
+
+  <build>
+    <plugins>
+      <plugin>
+        <artifactId>maven-resources-plugin</artifactId>
+        <version>2.4</version>
+        <configuration>
+          <encoding>UTF-8</encoding>
+        </configuration>
+        <executions>
+          <execution>
+            <id>copy-resources</id>
+            <phase>process-resources</phase>
+            <goals>
+              <goal>copy-resources</goal>
+            </goals>
+            <configuration>
+              <outputDirectory>
+                ${project.build.directory}/classes/META-INF
+              </outputDirectory>
+              <resources>
+                <resource>
+                  <directory>..</directory>
+                  <includes>
+                    <include>README.txt</include>
+                    <include>NOTICE.txt</include>
+                    <include>LICENSE.txt</include>
+                  </includes>
+                </resource>
+              </resources>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <configuration>
+          <encoding>UTF-8</encoding>
+          <source>1.6</source>
+          <target>1.6</target>
+          <optimize>true</optimize>
+        </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-dependency-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>copy-dependencies</id>
+            <phase>package</phase>
+            <goals>
+              <goal>copy-dependencies</goal>
+            </goals>
+            <configuration>
+              <!-- configure the plugin here -->
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-remote-resources-plugin</artifactId>
+        <configuration>
+          <appendedResourcesDirectory>../src/main/appended-resources</appendedResourcesDirectory>
+          <resourceBundles>
+            <resourceBundle>org.apache:apache-jar-resource-bundle:1.4</resourceBundle>
+          </resourceBundles>
+          <supplementalModels>
+            <supplementalModel>supplemental-models.xml</supplementalModel>
+          </supplementalModels>
+        </configuration>
+      </plugin>
+    </plugins>
+
+  </build>
+
+  <dependencies>
+
+    <dependency>
+      <groupId>org.apache.mahout</groupId>
+      <artifactId>mahout-core</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.easymock</groupId>
+      <artifactId>easymock</artifactId>
+      <version>2.4</version>
+      <scope>test</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>org.easymock</groupId>
+      <artifactId>easymockclassextension</artifactId>
+      <version>2.4</version>
+      <scope>test</scope>
+    </dependency>
+
+    <!--  cglib contains nested dependencies that interfere with easymock,
+          thus the cglib references needs to be below easymock  -->
+    <dependency>
+      <groupId>cglib</groupId>
+      <artifactId>cglib</artifactId>
+      <version>2.1_3</version>
+    </dependency>
+
+
+    <dependency>
+      <groupId>junit</groupId>
+      <artifactId>junit</artifactId>
+      <version>3.8.2</version>
+      <scope>test</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-api</artifactId>
+      <version>1.5.8</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-jcl</artifactId>
+      <version>1.5.8</version>
+    </dependency>
+
+  </dependencies>
+
+
+  <scm>
+    <connection>scm:svn:https://svn.apache.org/repos/asf/lucene/mahout/tags/mahout-0.2</connection>
+    <developerConnection>scm:svn:https://svn.apache.org/repos/asf/lucene/mahout/tags/mahout-0.2
+    </developerConnection>
+    <url>https://svn.apache.org/repos/asf/lucene/mahout/mahout-examples/tags/mahout-0.2-examples</url>
+  </scm>
+</project>
