@@ -116,7 +116,7 @@
                   <goal>sign-and-deploy-file</goal>
                 </goals>
                 <configuration>
-                  <file>core/lib/hadoop-core-0.20.1.jar</file>
+                  <file>${basedir}/core/lib/hadoop-core-0.20.1.jar</file>
                   <groupId>org.apache.mahout.hadoop</groupId>
                   <artifactId>hadoop-core</artifactId>
                   <packaging>jar</packaging>
@@ -131,7 +131,7 @@
                   <goal>sign-and-deploy-file</goal>
                 </goals>
                 <configuration>
-                  <file>core/lib/kfs-0.3.jar</file>
+                  <file>${basedir}/core/lib/kfs-0.3.jar</file>
                   <groupId>org.apache.mahout.kosmofs</groupId>
                   <artifactId>kfs</artifactId>
                   <packaging>jar</packaging>
@@ -146,7 +146,7 @@
                   <goal>sign-and-deploy-file</goal>
                 </goals>
                 <configuration>
-                  <file>core/lib/jets3t-0.7.1.jar</file>
+                  <file>${basedir}/core/lib/jets3t-0.7.1.jar</file>
                   <groupId>org.apache.mahout.jets3t</groupId>
                   <artifactId>jets3t</artifactId>
                   <packaging>jar</packaging>
@@ -161,7 +161,7 @@
                   <goal>sign-and-deploy-file</goal>
                 </goals>
                 <configuration>
-                  <file>core/lib/watchmaker-framework-0.6.2.jar</file>
+                  <file>${basedir}/core/lib/watchmaker-framework-0.6.2.jar</file>
                   <groupId>org.apache.mahout.watchmaker</groupId>
                   <artifactId>watchmaker-framework</artifactId>
                   <packaging>jar</packaging>
@@ -176,7 +176,7 @@
                   <goal>sign-and-deploy-file</goal>
                 </goals>
                 <configuration>
-                  <file>core/lib/watchmaker-swing-0.6.2.jar</file>
+                  <file>${basedir}/core/lib/watchmaker-swing-0.6.2.jar</file>
                   <groupId>org.apache.mahout.watchmaker</groupId>
                   <artifactId>watchmaker-swing</artifactId>
                   <packaging>jar</packaging>
@@ -191,7 +191,7 @@
                   <goal>sign-and-deploy-file</goal>
                 </goals>
                 <configuration>
-                  <file>core/lib/uncommons-maths-1.2.jar</file>
+                  <file>${basedir}/core/lib/uncommons-maths-1.2.jar</file>
                   <groupId>org.apache.mahout.uncommons.math</groupId>
                   <artifactId>uncommons-math</artifactId>
                   <packaging>jar</packaging>
@@ -206,7 +206,7 @@
                   <goal>sign-and-deploy-file</goal>
                 </goals>
                 <configuration>
-                  <file>core/lib/commons-cli-2.0-mahout.jar</file>
+                  <file>${basedir}/core/lib/commons-cli-2.0-mahout.jar</file>
                   <groupId>org.apache.mahout.commons</groupId>
                   <artifactId>commons-cli</artifactId>
                   <packaging>jar</packaging>
