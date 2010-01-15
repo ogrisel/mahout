@@ -186,7 +186,7 @@ public final class WikipediaXmlSplitter {
           String filename = outputDirPath + "/" + "/chunk-"
             + decimalFormatter.format(filenumber) + ".xml";
           BufferedWriter chunkWriter = new BufferedWriter(
-            new OutputStreamWriter(fs.create(new Path(filename), true), "UTF-8"));
+            new OutputStreamWriter(fs.create(new Path(filename)), "UTF-8"));
           
           chunkWriter.write(content.toString(), 0, content.length());
           chunkWriter.close();
