@@ -19,6 +19,7 @@ package org.apache.mahout.classifier.bayes;
 
 import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.net.URI;
@@ -36,6 +37,8 @@ import org.apache.commons.cli2.commandline.Parser;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.io.compress.BZip2Codec;
+import org.apache.hadoop.io.compress.CompressionCodec;
 import org.apache.mahout.common.FileLineIterator;
 
 /**
@@ -54,7 +57,7 @@ public final class WikipediaXmlSplitter {
     Option dumpFileOpt = obuilder.withLongName("dumpFile").withRequired(true)
         .withArgument(
           abuilder.withName("dumpFile").withMinimum(1).withMaximum(1).create())
-        .withDescription("The path to the wikipedia dump file").withShortName(
+        .withDescription("The path to the wikipedia dump file (.bz2 or uncompressed").withShortName(
           "d").create();
     
     Option outputDirOpt = obuilder
@@ -163,7 +166,17 @@ public final class WikipediaXmlSplitter {
     content.append(header);
     int filenumber = 0;
     NumberFormat decimalFormatter = new DecimalFormat("0000");
-    FileLineIterator it = new FileLineIterator(new File(dumpFilePath));
+    File dumpFile = new File(dumpFilePath);
+    FileLineIterator it;
+    if (dumpFilePath.endsWith(".bz2")) {
+      // default compression format from http://download.wikimedia.org
+      CompressionCodec codec = new BZip2Codec();
+      it = new FileLineIterator(codec.createInputStream(
+        new FileInputStream(dumpFile)));
+    } else {
+      // assume the user has previously de-compressed the dump file
+      it = new FileLineIterator(dumpFile);
+    }
 
     while (it.hasNext()) {
       String thisLine = it.next();
