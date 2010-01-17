@@ -181,7 +181,6 @@ public final class WikipediaXmlSplitter {
       // assume the user has previously de-compressed the dump file
       it = new FileLineIterator(dumpFile);
     }
-    FileLineIterator it = new FileLineIterator(new File(dumpFilePath));
 
     while (it.hasNext()) {
       String thisLine = it.next();
