@@ -44,22 +44,22 @@ import org.apache.mahout.common.FileLineIterator;
 /**
  * Splits the wikipedia xml file in to chunks of size as specified by command
  * line parameter
- * 
+ *
  */
 public final class WikipediaXmlSplitter {
   private WikipediaXmlSplitter() { }
-  
+
   public static void main(String[] args) throws IOException, OptionException {
     DefaultOptionBuilder obuilder = new DefaultOptionBuilder();
     ArgumentBuilder abuilder = new ArgumentBuilder();
     GroupBuilder gbuilder = new GroupBuilder();
-    
+
     Option dumpFileOpt = obuilder.withLongName("dumpFile").withRequired(true)
         .withArgument(
           abuilder.withName("dumpFile").withMinimum(1).withMaximum(1).create())
         .withDescription("The path to the wikipedia dump file (.bz2 or uncompressed").withShortName(
           "d").create();
-    
+
     Option outputDirOpt = obuilder
         .withLongName("outputDir")
         .withRequired(true)
@@ -67,7 +67,7 @@ public final class WikipediaXmlSplitter {
           abuilder.withName("outputDir").withMinimum(1).withMaximum(1).create())
         .withDescription("The output directory to place the splits in")
         .withShortName("o").create();
-    
+
     Option s3IdOpt = obuilder
         .withLongName("s3Id")
         .withRequired(false)
@@ -101,20 +101,24 @@ public final class WikipediaXmlSplitter {
     Group group = gbuilder.withName("Options").withOption(dumpFileOpt)
         .withOption(outputDirOpt).withOption(chunkSizeOpt).withOption(
           numChunksOpt).withOption(s3IdOpt).withOption(s3SecretOpt).create();
-    
+
     Parser parser = new Parser();
     parser.setGroup(group);
     CommandLine cmdLine = parser.parse(args);
-    
+
     Configuration conf = new Configuration();
     String dumpFilePath = (String) cmdLine.getValue(dumpFileOpt);
     String outputDirPath = (String) cmdLine.getValue(outputDirOpt);
-    
+
     if (cmdLine.hasOption(s3IdOpt)) {
-      conf.set("fs.s3.awsAccessKeyId", (String) cmdLine.getValue(s3IdOpt));
+      String id = (String) cmdLine.getValue(s3IdOpt);
+      conf.set("fs.s3n.awsAccessKeyId", id);
+      conf.set("fs.s3.awsAccessKeyId", id);
     }
     if (cmdLine.hasOption(s3SecretOpt)) {
-      conf.set("fs.s3.awsSecretAccessKey", (String) cmdLine.getValue(s3SecretOpt));
+      String secret = (String) cmdLine.getValue(s3SecretOpt);
+      conf.set("fs.s3n.awsSecretAccessKey", secret);
+      conf.set("fs.s3.awsSecretAccessKey", secret);
     }
     // do not compute crc file when using local FS
     conf.set("fs.file.impl", "org.apache.hadoop.fs.RawLocalFileSystem");
@@ -122,12 +126,12 @@ public final class WikipediaXmlSplitter {
 
     int chunkSize = 1024 * 1024 * Integer.parseInt((String) cmdLine
         .getValue(chunkSizeOpt));
-    
+
     int numChunks = Integer.MAX_VALUE;
     if (cmdLine.hasOption(numChunksOpt)) {
       numChunks = Integer.parseInt((String) cmdLine.getValue(numChunksOpt));
     }
-    
+
     String header = "<mediawiki xmlns=\"http://www.mediawiki.org/xml/export-0.3/\" "
                     + "xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" "
                     + "xsi:schemaLocation=\"http://www.mediawiki.org/xml/export-0.3/ "
@@ -161,7 +165,7 @@ public final class WikipediaXmlSplitter {
                     + "      <namespace key=\"100\">Portal</namespace>\n"
                     + "      <namespace key=\"101\">Portal talk</namespace>\n"
                     + "    </namespaces>\n" + "  </siteinfo>\n";
-    
+
     StringBuilder content = new StringBuilder();
     content.append(header);
     int filenumber = 0;
@@ -177,6 +181,7 @@ public final class WikipediaXmlSplitter {
       // assume the user has previously de-compressed the dump file
       it = new FileLineIterator(dumpFile);
     }
+    FileLineIterator it = new FileLineIterator(new File(dumpFilePath));
 
     while (it.hasNext()) {
       String thisLine = it.next();
@@ -192,7 +197,7 @@ public final class WikipediaXmlSplitter {
           }
         }
         content.append(thisLine).append('\n');
-        
+
         if (content.length() > chunkSize || end) {
           content.append("</mediawiki>");
           filenumber++;
@@ -200,7 +205,7 @@ public final class WikipediaXmlSplitter {
             + decimalFormatter.format(filenumber) + ".xml";
           BufferedWriter chunkWriter = new BufferedWriter(
             new OutputStreamWriter(fs.create(new Path(filename)), "UTF-8"));
-          
+
           chunkWriter.write(content.toString(), 0, content.length());
           chunkWriter.close();
           if (filenumber >= numChunks) {
@@ -211,6 +216,6 @@ public final class WikipediaXmlSplitter {
         }
       }
     }
-    
+
   }
 }

@@ -17,43 +17,42 @@
  * under the License.
  */
 
-/*
-Copyright � 1999 CERN - European Organization for Nuclear Research.
-Permission to use, copy, modify, distribute and sell this software and its documentation for any purpose 
-is hereby granted without fee, provided that the above copyright notice appear in all copies and 
-that both that copyright notice and this permission notice appear in supporting documentation. 
-CERN makes no representations about the suitability of this software for any purpose. 
-It is provided "as is" without expressed or implied warranty.
-*/
-package org.apache.mahout.math.map;
+package org.apache.mahout.math.set;
 
 import java.util.Arrays;
-import java.util.List;
 
-import org.apache.mahout.math.function.${keyTypeCap}ObjectProcedure;
 import org.apache.mahout.math.function.${keyTypeCap}Procedure;
 import org.apache.mahout.math.list.${keyTypeCap}ArrayList;
+import org.apache.mahout.math.map.HashFunctions;
+import org.apache.mahout.math.map.PrimeFinder;
 
-public class Open${keyTypeCap}ObjectHashMap<T> extends Abstract${keyTypeCap}ObjectMap<T> {
-
-  private static final byte FREE = 0;
-  private static final byte FULL = 1;
-  private static final byte REMOVED = 2;
+/**
+  * Open hash set of ${keyType} items;
+ **/
+public class Open${keyTypeCap}HashSet extends Abstract${keyTypeCap}Set {
+  protected static final byte FREE = 0;
+  protected static final byte FULL = 1;
+  protected static final byte REMOVED = 2;
+#if (${keyTypeFloating} == 'true')
+#set ($noKeyComment = "${keyTypeCap}.NaN")
+  protected static final ${keyType} NO_KEY_VALUE = ${keyTypeCap}.NaN;
+#else
+#set ($noKeyComment = "0")
+  protected static final ${keyType} NO_KEY_VALUE = 0;
+#end
 
   /** The hash table keys. */
-  private ${keyType}[] table;
-
-  /** The hash table values. */
-  private T[] values;
+  protected ${keyType}[] table;
 
   /** The state of each hash table entry (FREE, FULL, REMOVED). */
-  private byte[] state;
+  protected byte[] state;
 
   /** The number of table entries in state==FREE. */
-  private int freeEntries;
+  protected int freeEntries;
+
 
   /** Constructs an empty map with default capacity and default load factors. */
-  public Open${keyTypeCap}ObjectHashMap() {
+  public Open${keyTypeCap}HashSet() {
     this(defaultCapacity);
   }
 
@@ -63,7 +62,7 @@ public class Open${keyTypeCap}ObjectHashMap<T> extends Abstract${keyTypeCap}Obje
    * @param initialCapacity the initial capacity of the map.
    * @throws IllegalArgumentException if the initial capacity is less than zero.
    */
-  public Open${keyTypeCap}ObjectHashMap(int initialCapacity) {
+  public Open${keyTypeCap}HashSet(int initialCapacity) {
     this(initialCapacity, defaultMinLoadFactor, defaultMaxLoadFactor);
   }
 
@@ -77,18 +76,16 @@ public class Open${keyTypeCap}ObjectHashMap<T> extends Abstract${keyTypeCap}Obje
    *                                  (maxLoadFactor <= 0.0 || maxLoadFactor >= 1.0) || (minLoadFactor >=
    *                                  maxLoadFactor)</tt>.
    */
-  public Open${keyTypeCap}ObjectHashMap(int initialCapacity, double minLoadFactor, double maxLoadFactor) {
+  public Open${keyTypeCap}HashSet(int initialCapacity, double minLoadFactor, double maxLoadFactor) {
     setUp(initialCapacity, minLoadFactor, maxLoadFactor);
   }
 
-  /** Removes all (key,value) associations from the receiver. Implicitly calls <tt>trimToSize()</tt>. */
+  /** Removes all values associations from the receiver. Implicitly calls <tt>trimToSize()</tt>. */
   @Override
   public void clear() {
-    Arrays.fill(state, 0, this.state.length - 1, FREE);
-    Arrays.fill(values, 0, state.length - 1, null); // delta
-
-    this.distinct = 0;
-    this.freeEntries = table.length; // delta
+    Arrays.fill(this.state, 0, state.length - 1, FREE);
+    distinct = 0;
+    freeEntries = table.length; // delta
     trimToSize();
   }
 
@@ -97,12 +94,10 @@ public class Open${keyTypeCap}ObjectHashMap<T> extends Abstract${keyTypeCap}Obje
    *
    * @return a deep copy of the receiver.
    */
-  @SuppressWarnings("unchecked") 
   @Override
-  public Open${keyTypeCap}ObjectHashMap<T> clone() {
-    Open${keyTypeCap}ObjectHashMap<T> copy = (Open${keyTypeCap}ObjectHashMap<T>) super.clone();
+  public Object clone() {
+    Open${keyTypeCap}HashSet copy = (Open${keyTypeCap}HashSet) super.clone();
     copy.table = copy.table.clone();
-    copy.values = copy.values.clone();
     copy.state = copy.state.clone();
     return copy;
   }
@@ -113,24 +108,14 @@ public class Open${keyTypeCap}ObjectHashMap<T> extends Abstract${keyTypeCap}Obje
    * @return <tt>true</tt> if the receiver contains the specified key.
    */
   @Override
-  public boolean containsKey(${keyType} key) {
+  public boolean contains(${keyType} key) {
     return indexOfKey(key) >= 0;
-  }
-
-  /**
-   * Returns <tt>true</tt> if the receiver contains the specified value.
-   *
-   * @return <tt>true</tt> if the receiver contains the specified value.
-   */
-  @Override
-  public boolean containsValue(T value) {
-    return indexOfValue(value) >= 0;
   }
 
   /**
    * Ensures that the receiver can hold at least the specified number of associations without needing to allocate new
    * internal memory. If necessary, allocates new internal memory and increases the capacity of the receiver. <p> This
-   * method never need be called; it is for performance tuning only. Calling this method before <tt>put()</tt>ing a
+   * method never need be called; it is for performance tuning only. Calling this method before <tt>add()</tt>ing a
    * large number of associations boosts performance, because the receiver will grow only once instead of potentially
    * many times and hash collisions get less probable.
    *
@@ -165,43 +150,6 @@ public class Open${keyTypeCap}ObjectHashMap<T> extends Abstract${keyTypeCap}Obje
       }
     }
     return true;
-  }
-
-  /**
-   * Applies a procedure to each (key,value) pair of the receiver, if any. Iteration order is guaranteed to be
-   * <i>identical</i> to the order used by method {@link #forEachKey(${keyTypeCap}Procedure)}.
-   *
-   * @param procedure the procedure to be applied. Stops iteration if the procedure returns <tt>false</tt>, otherwise
-   *                  continues.
-   * @return <tt>false</tt> if the procedure stopped before all keys where iterated over, <tt>true</tt> otherwise.
-   */
-  @Override
-  public boolean forEachPair(${keyTypeCap}ObjectProcedure<T> procedure) {
-    for (int i = table.length; i-- > 0;) {
-      if (state[i] == FULL) {
-        if (!procedure.apply(table[i], values[i])) {
-          return false;
-        }
-      }
-    }
-    return true;
-  }
-
-  /**
-   * Returns the value associated with the specified key. It is often a good idea to first check with {@link
-   * #containsKey(int)} whether the given key has a value associated or not, i.e. whether there exists an association
-   * for the given key or not.
-   *
-   * @param key the key to be searched for.
-   * @return the value associated with the specified key; <tt>null</tt> if no such key is present.
-   */
-  @Override
-  public T get(${keyType} key) {
-    int i = indexOfKey(key);
-    if (i < 0) {
-      return null;
-    } //not contained
-    return values[i];
   }
 
   /**
@@ -296,74 +244,26 @@ public class Open${keyTypeCap}ObjectHashMap<T> extends Abstract${keyTypeCap}Obje
   }
 
   /**
-   * @param value the value to be searched in the receiver.
-   * @return the index where the value is contained in the receiver, returns -1 if the value was not found.
-   */
-  protected int indexOfValue(T value) {
-    T[] val = values;
-    byte[] stat = state;
-
-    for (int i = stat.length; --i >= 0;) {
-      if (stat[i] == FULL && val[i] == value) {
-        return i;
-      }
-    }
-
-    return -1; // not found
-  }
-
-  /**
    * Fills all keys contained in the receiver into the specified list. Fills the list, starting at index 0. After this
    * call returns the specified list has a new size that equals <tt>this.size()</tt>. Iteration order is guaranteed to
-   * be <i>identical</i> to the order used by method {@link #forEachKey(${keyTypeCap}Procedure)}. <p> This method can be used to
-   * iterate over the keys of the receiver.
+   * be <i>identical</i> to the order used by method {@link #forEachKey(${keyTypeCap}Procedure)}.
+   * <p> This method can be used
+   * to iterate over the keys of the receiver.
    *
    * @param list the list to be filled, can have any size.
    */
   @Override
   public void keys(${keyTypeCap}ArrayList list) {
     list.setSize(distinct);
-    ${keyType}[] elements = list.elements();
+    ${keyType} [] elements = list.elements();
 
-    ${keyType}[] tab = table;
+    ${keyType} [] tab = table;
     byte[] stat = state;
 
     int j = 0;
     for (int i = tab.length; i-- > 0;) {
       if (stat[i] == FULL) {
         elements[j++] = tab[i];
-      }
-    }
-  }
-
-  /**
-   * Fills all pairs satisfying a given condition into the specified lists. Fills into the lists, starting at index 0.
-   * After this call returns the specified lists both have a new size, the number of pairs satisfying the condition.
-   * Iteration order is guaranteed to be <i>identical</i> to the order used by method {@link #forEachKey(${keyTypeCap}Procedure)}.
-   * <p> <b>Example:</b> <br>
-   * <pre>
-   * ${keyTypeCap}ObjectProcedure condition = new ${keyTypeCap}ObjectProcedure() { // match even keys only
-   * public boolean apply(${keyType} key, Object value) { return key%2==0; }
-   * }
-   * keys = (8,7,6), values = (1,2,2) --> keyList = (6,8), valueList = (2,1)</tt>
-   * </pre>
-   *
-   * @param condition the condition to be matched. Takes the current key as first and the current value as second
-   *                  argument.
-   * @param keyList   the list to be filled with keys, can have any size.
-   * @param valueList the list to be filled with values, can have any size.
-   */
-  @Override
-  public void pairsMatching(${keyTypeCap}ObjectProcedure<T> condition, 
-                            ${keyTypeCap}ArrayList keyList, 
-                            List<T> valueList) {
-    keyList.clear();
-    valueList.clear();
-
-    for (int i = table.length; i-- > 0;) {
-      if (state[i] == FULL && condition.apply(table[i], values[i])) {
-        keyList.add(table[i]);
-        valueList.add(values[i]);
       }
     }
   }
@@ -378,22 +278,24 @@ public class Open${keyTypeCap}ObjectHashMap<T> extends Abstract${keyTypeCap}Obje
    *         already contain such a key - the new value has now replaced the formerly associated value.
    */
   @Override
-  public boolean put(${keyType} key, T value) {
+  public boolean add(${keyType} key) {
     int i = indexOfInsertion(key);
     if (i < 0) { //already contained
       i = -i - 1;
-      this.values[i] = value;
       return false;
     }
 
     if (this.distinct > this.highWaterMark) {
       int newCapacity = chooseGrowCapacity(this.distinct + 1, this.minLoadFactor, this.maxLoadFactor);
+      /*
+      log.info("grow rehashing ");
+      log.info("at distinct="+distinct+", capacity="+table.length+" to newCapacity="+newCapacity+" ...");
+      */
       rehash(newCapacity);
-      return put(key, value);
+      return add(key);
     }
 
     this.table[i] = key;
-    this.values[i] = value;
     if (this.state[i] == FREE) {
       this.freeEntries--;
     }
@@ -413,24 +315,20 @@ public class Open${keyTypeCap}ObjectHashMap<T> extends Abstract${keyTypeCap}Obje
    * automatically when the number of keys in the receiver exceeds the high water mark or falls below the low water
    * mark.
    */
-  @SuppressWarnings("unchecked")
   protected void rehash(int newCapacity) {
     int oldCapacity = table.length;
     //if (oldCapacity == newCapacity) return;
 
     ${keyType}[] oldTable = table;
-    T[] oldValues = values;
     byte[] oldState = state;
 
     ${keyType}[] newTable = new ${keyType}[newCapacity];
-    T[] newValues = (T[]) new Object[newCapacity];
     byte[] newState = new byte[newCapacity];
 
     this.lowWaterMark = chooseLowWaterMark(newCapacity, this.minLoadFactor);
     this.highWaterMark = chooseHighWaterMark(newCapacity, this.maxLoadFactor);
 
     this.table = newTable;
-    this.values = newValues;
     this.state = newState;
     this.freeEntries = newCapacity - this.distinct; // delta
 
@@ -439,7 +337,6 @@ public class Open${keyTypeCap}ObjectHashMap<T> extends Abstract${keyTypeCap}Obje
         ${keyType} element = oldTable[i];
         int index = indexOfInsertion(element);
         newTable[index] = element;
-        newValues[index] = oldValues[i];
         newState[index] = FULL;
       }
     }
@@ -452,18 +349,23 @@ public class Open${keyTypeCap}ObjectHashMap<T> extends Abstract${keyTypeCap}Obje
    * @return <tt>true</tt> if the receiver contained the specified key, <tt>false</tt> otherwise.
    */
   @Override
-  public boolean removeKey(${keyType} key) {
+  public boolean remove(${keyType} key) {
     int i = indexOfKey(key);
     if (i < 0) {
       return false;
     } // key not contained
 
     this.state[i] = REMOVED;
-    this.values[i] = null; // delta
     this.distinct--;
 
     if (this.distinct < this.lowWaterMark) {
       int newCapacity = chooseShrinkCapacity(this.distinct, this.minLoadFactor, this.maxLoadFactor);
+      /*
+      if (table.length != newCapacity) {
+        log.info("shrink rehashing ");
+        log.info("at distinct="+distinct+", capacity="+table.length+" to newCapacity="+newCapacity+" ...");
+      }
+      */
       rehash(newCapacity);
     }
 
@@ -480,7 +382,6 @@ public class Open${keyTypeCap}ObjectHashMap<T> extends Abstract${keyTypeCap}Obje
    *                                  (maxLoadFactor <= 0.0 || maxLoadFactor >= 1.0) || (minLoadFactor >=
    *                                  maxLoadFactor)</tt>.
    */
-  @SuppressWarnings("unchecked")
   @Override
   protected void setUp(int initialCapacity, double minLoadFactor, double maxLoadFactor) {
     int capacity = initialCapacity;
@@ -491,7 +392,6 @@ public class Open${keyTypeCap}ObjectHashMap<T> extends Abstract${keyTypeCap}Obje
     } // open addressing needs at least one FREE slot at any time.
 
     this.table = new ${keyType}[capacity];
-    this.values = (T[]) new Object[capacity];
     this.state = new byte[capacity];
 
     // memory will be exhausted long before this pathological case happens, anyway.
@@ -527,28 +427,6 @@ public class Open${keyTypeCap}ObjectHashMap<T> extends Abstract${keyTypeCap}Obje
     }
   }
 
-  /**
-   * Fills all values contained in the receiver into the specified list. Fills the list, starting at index 0. After this
-   * call returns the specified list has a new size that equals <tt>this.size()</tt>.
-   * <p> This method can be used to
-   * iterate over the values of the receiver.
-   *
-   * @param list the list to be filled, can have any size.
-   */
-  @Override
-  public void values(List<T> list) {
-    list.clear();
-
-    T[] val = values;
-    byte[] stat = state;
-
-    for (int i = stat.length; i-- > 0;) {
-      if (stat[i] == FULL) {
-        list.add(val[i]);
-      }
-    }
-  }
-  
   /**
    * Access for unit tests.
    * @param capacity

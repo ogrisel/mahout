@@ -16,6 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+
 /*
 Copyright � 1999 CERN - European Organization for Nuclear Research.
 Permission to use, copy, modify, distribute and sell this software and its documentation for any purpose 
@@ -27,29 +28,32 @@ It is provided "as is" without expressed or implied warranty.
 package org.apache.mahout.math.map;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import org.apache.mahout.math.Sorting;
 import org.apache.mahout.math.Swapper;
+import org.apache.mahout.math.function.Object${valueTypeCap}Procedure;
+import org.apache.mahout.math.function.ObjectProcedure;
+import org.apache.mahout.math.list.${valueTypeCap}ArrayList;
 import org.apache.mahout.math.function.IntComparator;
-
-import org.apache.mahout.math.function.${keyTypeCap}ObjectProcedure;
-import org.apache.mahout.math.function.${keyTypeCap}Procedure;
-import org.apache.mahout.math.list.${keyTypeCap}ArrayList;
+#if (${valueTypeFloating} == 'true')
+import org.apache.mahout.math.function.${valueTypeCap}Function;
+#end
 import org.apache.mahout.math.set.AbstractSet;
 
-public abstract class Abstract${keyTypeCap}ObjectMap<T> extends AbstractSet {
+public abstract class AbstractObject${valueTypeCap}Map<T> extends AbstractSet {
 
   /**
    * Returns <tt>true</tt> if the receiver contains the specified key.
    *
    * @return <tt>true</tt> if the receiver contains the specified key.
    */
-  public boolean containsKey(final ${keyType} key) {
+  public boolean containsKey(final T key) {
     return !forEachKey(
-        new ${keyTypeCap}Procedure() {
+        new ObjectProcedure<T>() {
           @Override
-          public boolean apply(${keyType} iterKey) {
+          public boolean apply(T iterKey) {
             return (key != iterKey);
           }
         }
@@ -57,15 +61,15 @@ public abstract class Abstract${keyTypeCap}ObjectMap<T> extends AbstractSet {
   }
 
   /**
-   * Returns <tt>true</tt> if the receiver contains the specified value. Tests for identity.
+   * Returns <tt>true</tt> if the receiver contains the specified value.
    *
    * @return <tt>true</tt> if the receiver contains the specified value.
    */
-  public boolean containsValue(final T value) {
+  public boolean containsValue(final ${valueType} value) {
     return !forEachPair(
-        new ${keyTypeCap}ObjectProcedure<T>() {
+        new Object${valueTypeCap}Procedure<T>() {
           @Override
-          public boolean apply(${keyType} iterKey, Object iterValue) {
+          public boolean apply(T iterKey, ${valueType} iterValue) {
             return (value != iterValue);
           }
         }
@@ -78,8 +82,8 @@ public abstract class Abstract${keyTypeCap}ObjectMap<T> extends AbstractSet {
    * @return a deep copy of the receiver.
    */
   @SuppressWarnings("unchecked") // seemingly unavoidable.
-  public Abstract${keyTypeCap}ObjectMap<T> copy() {
-    return this.getClass().cast(clone());
+  public AbstractObject${valueTypeCap}Map<T> copy() {
+    return (AbstractObject${valueTypeCap}Map<T>) clone();
   }
 
   /**
@@ -88,16 +92,16 @@ public abstract class Abstract${keyTypeCap}ObjectMap<T> extends AbstractSet {
    * same mappings iff
    * <pre>
    * m1.forEachPair(
-   *    new ${keyTypeCap}ObjectProcedure() {
-   *      public boolean apply(${keyType} key, Object value) {
+   *    new Object${valueTypeCap}Procedure<T>() {
+   *      public boolean apply(T key, ${valueType} value) {
    *        return m2.containsKey(key) && m2.get(key) == value;
    *      }
    *    }
    *  )
    * &&
    * m2.forEachPair(
-   *    new ${keyTypeCap}ObjectProcedure() {
-   *      public boolean apply(${keyType} key, Object value) {
+   *    new Object${valueTypeCap}Procedure<T>() {
+   *      public boolean apply(T key, ${valueType} value) {
    *        return m1.containsKey(key) && m1.get(key) == value;
    *      }
    *    }
@@ -111,34 +115,34 @@ public abstract class Abstract${keyTypeCap}ObjectMap<T> extends AbstractSet {
    * @param obj object to be compared for equality with this map.
    * @return <tt>true</tt> if the specified object is equal to this map.
    */
-  @SuppressWarnings("unchecked") // incompressible
+  @SuppressWarnings("unchecked")
   public boolean equals(Object obj) {
     if (obj == this) {
       return true;
     }
 
-    if (!(obj instanceof Abstract${keyTypeCap}ObjectMap)) {
+    if (!(obj instanceof AbstractObject${valueTypeCap}Map)) {
       return false;
     }
-    final Abstract${keyTypeCap}ObjectMap other = (Abstract${keyTypeCap}ObjectMap) obj;
+    final AbstractObject${valueTypeCap}Map other = (AbstractObject${valueTypeCap}Map) obj;
     if (other.size() != size()) {
       return false;
     }
 
     return
         forEachPair(
-            new ${keyTypeCap}ObjectProcedure() {
+            new Object${valueTypeCap}Procedure<T>() {
               @Override
-              public boolean apply(${keyType} key, Object value) {
+              public boolean apply(T key, ${valueType} value) {
                 return other.containsKey(key) && other.get(key) == value;
               }
             }
         )
             &&
             other.forEachPair(
-                new ${keyTypeCap}ObjectProcedure() {
+                new Object${valueTypeCap}Procedure<T>() {
                   @Override
-                  public boolean apply(${keyType} key, Object value) {
+                  public boolean apply(T key, ${valueType} value) {
                     return containsKey(key) && get(key) == value;
                   }
                 }
@@ -156,21 +160,21 @@ public abstract class Abstract${keyTypeCap}ObjectMap<T> extends AbstractSet {
    *                  continues.
    * @return <tt>false</tt> if the procedure stopped before all keys where iterated over, <tt>true</tt> otherwise.
    */
-  public abstract boolean forEachKey(${keyTypeCap}Procedure procedure);
+  public abstract boolean forEachKey(ObjectProcedure<T> procedure);
 
   /**
    * Applies a procedure to each (key,value) pair of the receiver, if any. Iteration order is guaranteed to be
-   * <i>identical</i> to the order used by method {@link #forEachKey(${keyTypeCap}Procedure)}.
+   * <i>identical</i> to the order used by method {@link #forEachKey(IntProcedure)}.
    *
    * @param procedure the procedure to be applied. Stops iteration if the procedure returns <tt>false</tt>, otherwise
    *                  continues.
    * @return <tt>false</tt> if the procedure stopped before all keys where iterated over, <tt>true</tt> otherwise.
    */
-  public boolean forEachPair(final ${keyTypeCap}ObjectProcedure<T> procedure) {
+  public boolean forEachPair(final Object${valueTypeCap}Procedure<T> procedure) {
     return forEachKey(
-        new ${keyTypeCap}Procedure() {
+        new ObjectProcedure<T>() {
           @Override
-          public boolean apply(${keyType} key) {
+          public boolean apply(T key) {
             return procedure.apply(key, get(key));
           }
         }
@@ -179,23 +183,23 @@ public abstract class Abstract${keyTypeCap}ObjectMap<T> extends AbstractSet {
 
   /**
    * Returns the value associated with the specified key. It is often a good idea to first check with {@link
-   * #containsKey(${keyType})} whether the given key has a value associated or not, i.e. whether there exists an association
+   * #containsKey(int)} whether the given key has a value associated or not, i.e. whether there exists an association
    * for the given key or not.
    *
    * @param key the key to be searched for.
-   * @return the value associated with the specified key; <tt>null</tt> if no such key is present.
+   * @return the value associated with the specified key; <tt>0</tt> if no such key is present.
    */
-  public abstract T get(${keyType} key);
+  public abstract ${valueType} get(T key);
 
   /**
    * Returns a list filled with all keys contained in the receiver. The returned list has a size that equals
    * <tt>this.size()</tt>. Iteration order is guaranteed to be <i>identical</i> to the order used by method {@link
-   * #forEachKey(${keyTypeCap}Procedure)}. <p> This method can be used to iterate over the keys of the receiver.
+   * #forEachKey(IntProcedure)}. <p> This method can be used to iterate over the keys of the receiver.
    *
    * @return the keys.
    */
-  public ${keyTypeCap}ArrayList keys() {
-    ${keyTypeCap}ArrayList list = new ${keyTypeCap}ArrayList(size());
+  public List<T> keys() {
+    List<T> list = new ArrayList<T>(size());
     keys(list);
     return list;
   }
@@ -203,17 +207,17 @@ public abstract class Abstract${keyTypeCap}ObjectMap<T> extends AbstractSet {
   /**
    * Fills all keys contained in the receiver into the specified list. Fills the list, starting at index 0. After this
    * call returns the specified list has a new size that equals <tt>this.size()</tt>. Iteration order is guaranteed to
-   * be <i>identical</i> to the order used by method {@link #forEachKey(${keyTypeCap}Procedure)}. <p> This method can be used to
+   * be <i>identical</i> to the order used by method {@link #forEachKey(IntProcedure)}. <p> This method can be used to
    * iterate over the keys of the receiver.
    *
    * @param list the list to be filled, can have any size.
    */
-  public void keys(final ${keyTypeCap}ArrayList list) {
+  public void keys(final List<T> list) {
     list.clear();
     forEachKey(
-        new ${keyTypeCap}Procedure() {
+        new ObjectProcedure<T>() {
           @Override
-          public boolean apply(${keyType} key) {
+          public boolean apply(T key) {
             list.add(key);
             return true;
           }
@@ -230,18 +234,18 @@ public abstract class Abstract${keyTypeCap}ObjectMap<T> extends AbstractSet {
    *
    * @param keyList the list to be filled, can have any size.
    */
-  public void keysSortedByValue(${keyTypeCap}ArrayList keyList) {
-    pairsSortedByValue(keyList, new ArrayList<T>(size()));
+  public void keysSortedByValue(List<T> keyList) {
+    pairsSortedByValue(keyList, new ${valueTypeCap}ArrayList(size()));
   }
 
   /**
    * Fills all pairs satisfying a given condition into the specified lists. Fills into the lists, starting at index 0.
    * After this call returns the specified lists both have a new size, the number of pairs satisfying the condition.
-   * Iteration order is guaranteed to be <i>identical</i> to the order used by method {@link #forEachKey(${keyTypeCap}Procedure)}.
+   * Iteration order is guaranteed to be <i>identical</i> to the order used by method {@link #forEachKey(IntProcedure)}.
    * <p> <b>Example:</b> <br>
    * <pre>
-   * ${keyTypeCap}ObjectProcedure condition = new ${keyTypeCap}ObjectProcedure() { // match even keys only
-   * public boolean apply(${keyType} key, Object value) { return key%2==0; }
+   * IntIntProcedure condition = new IntIntProcedure() { // match even keys only
+   * public boolean apply(int key, int value) { return key%2==0; }
    * }
    * keys = (8,7,6), values = (1,2,2) --> keyList = (6,8), valueList = (2,1)</tt>
    * </pre>
@@ -251,16 +255,16 @@ public abstract class Abstract${keyTypeCap}ObjectMap<T> extends AbstractSet {
    * @param keyList   the list to be filled with keys, can have any size.
    * @param valueList the list to be filled with values, can have any size.
    */
-  public void pairsMatching(final ${keyTypeCap}ObjectProcedure<T> condition, 
-                            final ${keyTypeCap}ArrayList keyList,
-                            final List<T> valueList) {
+  public void pairsMatching(final Object${valueTypeCap}Procedure<T> condition, 
+                           final List<T> keyList, 
+                           final ${valueTypeCap}ArrayList valueList) {
     keyList.clear();
     valueList.clear();
 
     forEachPair(
-        new ${keyTypeCap}ObjectProcedure<T>() {
+        new Object${valueTypeCap}Procedure<T>() {
           @Override
-          public boolean apply(${keyType} key, T value) {
+          public boolean apply(T key, ${valueType} value) {
             if (condition.apply(key, value)) {
               keyList.add(key);
               valueList.add(value);
@@ -270,7 +274,7 @@ public abstract class Abstract${keyTypeCap}ObjectMap<T> extends AbstractSet {
         }
     );
   }
-  
+
   /**
    * Fills all keys and values <i>sorted ascending by key</i> into the specified lists. Fills into the lists, starting
    * at index 0. After this call returns the specified lists both have a new size that equals <tt>this.size()</tt>. <p>
@@ -280,62 +284,56 @@ public abstract class Abstract${keyTypeCap}ObjectMap<T> extends AbstractSet {
    * @param valueList the list to be filled with values, can have any size.
    */
   @SuppressWarnings("unchecked")
-  public void pairsSortedByKey(${keyTypeCap}ArrayList keyList, List<T> valueList) {
+  public void pairsSortedByKey(List<T> keyList, ${valueTypeCap}ArrayList valueList) {
     keys(keyList);
-    keyList.sort();
-    // the following is straightforward if not the most space-efficient possibility
-    T[] tempValueList = (T[]) new Object[keyList.size()];
-
+    if (keyList.size() == 0) {
+       return;
+    }
+    T k = keyList.get(0);
+    // some people would demand a more complex type hierarchy here ...
+    if (!(k instanceof Comparable)) {
+        throw new UnsupportedOperationException("The key type for this map does not implement comparable");
+    }
+    // go raw
+    List rawKeyList = keyList;
+    Collections.sort(rawKeyList);
+    valueList.setSize(keyList.size());
     for (int i = keyList.size(); --i >= 0;) {
-      tempValueList[i] = get(keyList.getQuick(i));
+      valueList.setQuick(i, get(keyList.get(i)));
     }
-    valueList.clear();
-    for (int i = 0; i < tempValueList.length; i ++) {
-      valueList.add(tempValueList[i]);
-    }
-    
   }
 
   /**
-   * Fills all keys and values <i>sorted ascending by value according to natural ordering</i> into the specified lists.
-   * Fills into the lists, starting at index 0. After this call returns the specified lists both have a new size that
-   * equals <tt>this.size()</tt>. Primary sort criterium is "value", secondary sort criterium is "key". This means that
-   * if any two values are equal, the smaller key comes first. <p> <b>Example:</b> <br> <tt>keys = (8,7,6), values =
-   * (1,2,2) --> keyList = (8,6,7), valueList = (1,2,2)</tt>
+   * Fills all keys and values <i>sorted ascending by value</i> into the specified lists. Fills into the lists, starting
+   * at index 0. After this call returns the specified lists both have a new size that equals <tt>this.size()</tt>.
+   * Primary sort criterium is "value", secondary sort criterium is "key". This means that if any two values are equal,
+   * the smaller key comes first. <p> <b>Example:</b> <br> <tt>keys = (8,7,6), values = (1,2,2) --> keyList = (8,6,7),
+   * valueList = (1,2,2)</tt>
    *
    * @param keyList   the list to be filled with keys, can have any size.
    * @param valueList the list to be filled with values, can have any size.
    */
-  @SuppressWarnings("unchecked")
-  public void pairsSortedByValue(${keyTypeCap}ArrayList keyList, List<T> valueList) {
+  public void pairsSortedByValue(final List<T> keyList, ${valueTypeCap}ArrayList valueList) {
     keys(keyList);
     values(valueList);
-    
-    if (valueList.size() > 0 && !(valueList.get(0) instanceof Comparable)) {
-      throw new UnsupportedOperationException("Cannot sort the values; " 
-          + valueList.get(0).getClass()
-          + " does not implement Comparable");
-    }
 
-    final ${keyType}[] k = keyList.elements();
-    final List<T> valueRef = valueList;
+    final ${valueType}[] v = valueList.elements();
     Swapper swapper = new Swapper() {
       @Override
       public void swap(int a, int b) {
-        T t1 = valueRef.get(a);
-        valueRef.set(a, valueRef.get(b));
-        valueRef.set(b, t1);
-        ${keyType} t2 = k[a];
-        k[a] = k[b];
-        k[b] = t2;
+        ${valueType} t1 = v[a];
+        v[a] = v[b];
+        v[b] = t1;
+        T t2 = keyList.get(a);
+        keyList.set(a, keyList.get(b));
+        keyList.set(b, t2);
       }
     };
 
     IntComparator comp = new IntComparator() {
       @Override
       public int compare(int a, int b) {
-        int ab = ((Comparable)valueRef.get(a)).compareTo(valueRef.get(b));
-        return ab < 0 ? -1 : ab > 0 ? 1 : (k[a] < k[b] ? -1 : (k[a] == k[b] ? 0 : 1));
+        return v[a] < v[b] ? -1 : v[a] > v[b] ? 1 : 0;
       }
     };
 
@@ -351,7 +349,7 @@ public abstract class Abstract${keyTypeCap}ObjectMap<T> extends AbstractSet {
    * @return <tt>true</tt> if the receiver did not already contain such a key; <tt>false</tt> if the receiver did
    *         already contain such a key - the new value has now replaced the formerly associated value.
    */
-  public abstract boolean put(${keyType} key, T value);
+  public abstract boolean put(T key, ${valueType} value);
 
   /**
    * Removes the given key with its associated element from the receiver, if present.
@@ -359,21 +357,20 @@ public abstract class Abstract${keyTypeCap}ObjectMap<T> extends AbstractSet {
    * @param key the key to be removed from the receiver.
    * @return <tt>true</tt> if the receiver contained the specified key, <tt>false</tt> otherwise.
    */
-  public abstract boolean removeKey(${keyType} key);
+  public abstract boolean removeKey(T key);
 
   /**
    * Returns a string representation of the receiver, containing the String representation of each key-value pair,
    * sorted ascending by key.
    */
   public String toString() {
-    ${keyTypeCap}ArrayList theKeys = keys();
-    theKeys.sort();
+    List<T> theKeys = keys();
 
     StringBuilder buf = new StringBuilder();
     buf.append('[');
     int maxIndex = theKeys.size() - 1;
     for (int i = 0; i <= maxIndex; i++) {
-      ${keyType} key = theKeys.get(i);
+      T key = theKeys.get(i);
       buf.append(String.valueOf(key));
       buf.append("->");
       buf.append(String.valueOf(get(key)));
@@ -387,17 +384,17 @@ public abstract class Abstract${keyTypeCap}ObjectMap<T> extends AbstractSet {
 
   /**
    * Returns a string representation of the receiver, containing the String representation of each key-value pair,
-   * sorted ascending by value, according to natural ordering.
+   * sorted ascending by value.
    */
   public String toStringByValue() {
-    ${keyTypeCap}ArrayList theKeys = new ${keyTypeCap}ArrayList();
+    List<T> theKeys = new ArrayList<T>();
     keysSortedByValue(theKeys);
 
     StringBuilder buf = new StringBuilder();
     buf.append('[');
     int maxIndex = theKeys.size() - 1;
     for (int i = 0; i <= maxIndex; i++) {
-      ${keyType} key = theKeys.get(i);
+      T key = theKeys.get(i);
       buf.append(String.valueOf(key));
       buf.append("->");
       buf.append(String.valueOf(get(key)));
@@ -412,12 +409,12 @@ public abstract class Abstract${keyTypeCap}ObjectMap<T> extends AbstractSet {
   /**
    * Returns a list filled with all values contained in the receiver. The returned list has a size that equals
    * <tt>this.size()</tt>. Iteration order is guaranteed to be <i>identical</i> to the order used by method {@link
-   * #forEachKey(${keyTypeCap}Procedure)}. <p> This method can be used to iterate over the values of the receiver.
+   * #forEachKey(IntProcedure)}. <p> This method can be used to iterate over the values of the receiver.
    *
    * @return the values.
    */
-  public List<T> values() {
-    List<T> list = new ArrayList<T>(size());
+  public ${valueTypeCap}ArrayList values() {
+    ${valueTypeCap}ArrayList list = new ${valueTypeCap}ArrayList(size());
     values(list);
     return list;
   }
@@ -425,21 +422,58 @@ public abstract class Abstract${keyTypeCap}ObjectMap<T> extends AbstractSet {
   /**
    * Fills all values contained in the receiver into the specified list. Fills the list, starting at index 0. After this
    * call returns the specified list has a new size that equals <tt>this.size()</tt>. Iteration order is guaranteed to
-   * be <i>identical</i> to the order used by method {@link #forEachKey(${keyTypeCap}Procedure)}. <p> This method can be used to
+   * be <i>identical</i> to the order used by method {@link #forEachKey(IntProcedure)}. <p> This method can be used to
    * iterate over the values of the receiver.
    *
    * @param list the list to be filled, can have any size.
    */
-  public void values(final List<T> list) {
+  public void values(final ${valueTypeCap}ArrayList list) {
     list.clear();
     forEachKey(
-        new ${keyTypeCap}Procedure() {
+        new ObjectProcedure<T>() {
           @Override
-          public boolean apply(${keyType} key) {
+          public boolean apply(T key) {
             list.add(get(key));
             return true;
           }
         }
     );
   }
+  
+  #if (${valueTypeFloating} == 'true')
+  /**
+   * Assigns the result of a function to each value; <tt>v[i] = function(v[i])</tt>.
+   *
+   * @param function a function object taking as argument the current association's value.
+   */
+  public void assign(final ${valueTypeCap}Function function) {
+    copy().forEachPair(
+        new  Object${valueTypeCap}Procedure<T>() {
+          @Override
+          public boolean apply(T key, ${valueType} value) {
+            put(key, function.apply(value));
+            return true;
+          }
+        }
+    );
+  }
+
+  /**
+   * Clears the receiver, then adds all (key,value) pairs of <tt>other</tt>values to it.
+   *
+   * @param other the other map to be copied into the receiver.
+   */
+  public void assign(AbstractObject${valueTypeCap}Map<T> other) {
+    clear();
+    other.forEachPair(
+        new Object${valueTypeCap}Procedure<T>() {
+          @Override
+          public boolean apply(T key, ${valueType} value) {
+            put(key, value);
+            return true;
+          }
+        }
+    );
+  }
+  #end
 }
