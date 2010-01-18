@@ -22,6 +22,7 @@ import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.io.File;
 import java.io.IOException;
+import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -38,6 +39,7 @@ import org.apache.mahout.common.FileLineIterable;
 import org.apache.mahout.math.VectorWritable;
 
 class DisplayASNOutputState extends DisplayDirichlet {
+
   DisplayASNOutputState() {
     initialize();
     this.setTitle("Dirichlet Process Clusters - Map/Reduce Results (>"
@@ -58,8 +60,9 @@ class DisplayASNOutputState extends DisplayDirichlet {
         AsymmetricSampledNormalModel mm = (AsymmetricSampledNormalModel) m;
         dv.set(0, mm.getStdDev().get(0) * 3);
         dv.set(1, mm.getStdDev().get(1) * 3);
-        if (isSignificant(mm))
+        if (isSignificant(mm)) {
           plotEllipse(g2, mm.getMean(), dv);
+        }
       }
     }
   }
@@ -83,18 +86,21 @@ class DisplayASNOutputState extends DisplayDirichlet {
 
   private static void getSamples() throws IOException {
     File f = new File("input");
-    for (File g : f.listFiles())
+    for (File g : f.listFiles()) {
       sampleData.addAll(readFile(g.getCanonicalPath()));
+    }
   }
 
-  private static void getResults() throws IOException {
+  private static void getResults() throws IOException, InvocationTargetException, NoSuchMethodException {
     result = new ArrayList<Model<VectorWritable>[]>();
     JobConf conf = new JobConf(KMeansDriver.class);
     conf
         .set(DirichletDriver.MODEL_FACTORY_KEY,
             "org.apache.mahout.clustering.dirichlet.models.AsymmetricSampledNormalDistribution");
-    conf.set(DirichletDriver.NUM_CLUSTERS_KEY, Integer.toString(20));
-    conf.set(DirichletDriver.ALPHA_0_KEY, Double.toString(1.0));
+    conf.set(DirichletDriver.MODEL_PROTOTYPE_KEY, "org.apache.mahout.math.DenseVector");
+    conf.set(DirichletDriver.PROTOTYPE_SIZE_KEY, "2");
+    conf.set(DirichletDriver.NUM_CLUSTERS_KEY, "20");
+    conf.set(DirichletDriver.ALPHA_0_KEY, "1.0");
     File f = new File("output");
     for (File g : f.listFiles()) {
       conf.set(DirichletDriver.STATE_IN_KEY, g.getCanonicalPath());
@@ -103,7 +109,7 @@ class DisplayASNOutputState extends DisplayDirichlet {
     }
   }
 
-  public static void main(String[] args) throws IOException {
+  public static void main(String[] args) throws IOException, InvocationTargetException, NoSuchMethodException {
     RandomUtils.useTestSeed();
     getSamples();
     getResults();
@@ -111,6 +117,7 @@ class DisplayASNOutputState extends DisplayDirichlet {
   }
 
   static void generateResults() {
-    DisplayDirichlet.generateResults(new NormalModelDistribution());
+    DisplayDirichlet.generateResults(new NormalModelDistribution(new VectorWritable(new DenseVector(2))));
   }
+
 }
