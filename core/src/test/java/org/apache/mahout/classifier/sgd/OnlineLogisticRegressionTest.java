@@ -33,14 +33,14 @@ public class OnlineLogisticRegressionTest {
 
     // weights for second vector component are still zero
     v = lr.classify(new DenseVector(new double[]{0, 1}));
-    Assert.assertEquals(1 / 3.0, v.get(0), 1e-8);
-    Assert.assertEquals(1 / 3.0, v.get(1), 1e-8);
+    Assert.assertEquals(1 / 3.0, v.get(0), 1e-3);
+    Assert.assertEquals(1 / 3.0, v.get(1), 1e-3);
 
     v = lr.classifyFullVector(new DenseVector(new double[]{0, 1}));
     Assert.assertEquals(1.0, v.zSum(), 1e-8);
-    Assert.assertEquals(1 / 3.0, v.get(0), 1e-8);
-    Assert.assertEquals(1 / 3.0, v.get(1), 1e-8);
-    Assert.assertEquals(1 / 3.0, v.get(2), 1e-8);
+    Assert.assertEquals(1 / 3.0, v.get(0), 1e-3);
+    Assert.assertEquals(1 / 3.0, v.get(1), 1e-3);
+    Assert.assertEquals(1 / 3.0, v.get(2), 1e-3);
 
     // but the weights on the first component are non-zero
     v = lr.classify(new DenseVector(new double[]{1, 0}));
@@ -57,9 +57,9 @@ public class OnlineLogisticRegressionTest {
 
     v = lr.classifyFullVector(new DenseVector(new double[]{1, 1}));
     Assert.assertEquals(1.0, v.zSum(), 1e-8);
-    Assert.assertEquals(Math.exp(0) / (1 + Math.exp(0) + Math.exp(-2)), v.get(0), 1e-8);
-    Assert.assertEquals(Math.exp(-2) / (1 + Math.exp(0) + Math.exp(-2)), v.get(1), 1e-8);
-    Assert.assertEquals(1 / (1 + Math.exp(0) + Math.exp(-2)), v.get(2), 1e-8);
+    Assert.assertEquals(Math.exp(0) / (1 + Math.exp(0) + Math.exp(-2)), v.get(0), 1e-3);
+    Assert.assertEquals(Math.exp(-2) / (1 + Math.exp(0) + Math.exp(-2)), v.get(1), 1e-3);
+    Assert.assertEquals(1 / (1 + Math.exp(0) + Math.exp(-2)), v.get(2), 1e-3);
 
     lr.setBeta(1, 1, 3);
 
