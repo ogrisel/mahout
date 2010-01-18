@@ -86,7 +86,7 @@ public class OnlineLogisticRegression {
   }
 
   /**
-   * Returns n-1 probabilities, one for each category but the last.  The probability of the n-th
+   * Returns n-1 probabilities, one for each category but the first.  The probability of the first
    * category is 1 - sum(this result).  The input is in the form of a list of Strings which is
    * interpreted as a sequence of terms.  Each term is hashed and folded down to some relatively
    * small number of features to be given to the underlying classifier.  IN addition, optionally
@@ -106,7 +106,7 @@ public class OnlineLogisticRegression {
   }
 
   /**
-   * Returns n-1 probabilities, one for each category but the last.  The probability of the n-th
+   * Returns n-1 probabilities, one for each category but the first.  The probability of the first
    * category is 1 - sum(this result).
    *
    * @param instance A vector of features to be classified.

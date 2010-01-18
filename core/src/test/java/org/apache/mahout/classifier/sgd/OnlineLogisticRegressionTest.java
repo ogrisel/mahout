@@ -152,8 +152,7 @@ public class OnlineLogisticRegressionTest {
     int epochs = 3;
 
     for (OnlineLogisticRegression model : models) {
-
-      // untrained model as a high error rate
+      // untrained model has a high error rate
       double untrainedErrorRate = misClassificationRate(model, input, labels);
       double minExpectedRate = 0.5;
       Assert.assertTrue(String.format(
@@ -167,6 +166,7 @@ public class OnlineLogisticRegressionTest {
           model.train(labels[i], input.getRow(i));
         }
       }
+
       // check the convergence
       double trainedErrorRate = misClassificationRate(model, input, labels);
       double maxExpectedRate = 0.001;
