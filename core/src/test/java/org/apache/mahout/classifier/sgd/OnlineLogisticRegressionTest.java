@@ -1,18 +1,31 @@
 package org.apache.mahout.classifier.sgd;
 
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Random;
+import java.util.Scanner;
+
 import org.apache.mahout.common.RandomUtils;
 import org.apache.mahout.math.DenseMatrix;
 import org.apache.mahout.math.DenseVector;
 import org.apache.mahout.math.Matrix;
 import org.apache.mahout.math.Vector;
 import org.junit.Assert;
+import org.junit.Before;
 import org.junit.Test;
 
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.util.*;
-
 public class OnlineLogisticRegressionTest {
+
+  @Before
+  public void initRng() {
+    RandomUtils.useTestSeed();
+  }
+
   @Test
   public void testClassify() throws Exception {
     OnlineLogisticRegression lr = new OnlineLogisticRegression(3, 2, new L2(1));
@@ -49,38 +62,35 @@ public class OnlineLogisticRegressionTest {
 
     v = lr.classifyFullVector(new DenseVector(new double[]{1, 0}));
     Assert.assertEquals(1.0, v.zSum(), 1e-8);
-    Assert.assertEquals(Math.exp(-1) / (1 + Math.exp(-1) + Math.exp(-2)), v.get(0), 1e-8);
-    Assert.assertEquals(Math.exp(-2) / (1 + Math.exp(-1) + Math.exp(-2)), v.get(1), 1e-8);
-    Assert.assertEquals(1 / (1 + Math.exp(-1) + Math.exp(-2)), v.get(2), 1e-8);
+    Assert.assertEquals(1 / (1 + Math.exp(-1) + Math.exp(-2)), v.get(0), 1e-8);
+    Assert.assertEquals(Math.exp(-1) / (1 + Math.exp(-1) + Math.exp(-2)), v.get(1), 1e-8);
+    Assert.assertEquals(Math.exp(-2) / (1 + Math.exp(-1) + Math.exp(-2)), v.get(2), 1e-8);
 
     lr.setBeta(0, 1, 1);
 
     v = lr.classifyFullVector(new DenseVector(new double[]{1, 1}));
     Assert.assertEquals(1.0, v.zSum(), 1e-8);
-    Assert.assertEquals(Math.exp(0) / (1 + Math.exp(0) + Math.exp(-2)), v.get(0), 1e-3);
-    Assert.assertEquals(Math.exp(-2) / (1 + Math.exp(0) + Math.exp(-2)), v.get(1), 1e-3);
-    Assert.assertEquals(1 / (1 + Math.exp(0) + Math.exp(-2)), v.get(2), 1e-3);
+    Assert.assertEquals(1 / (1 + Math.exp(0) + Math.exp(-2)), v.get(0), 1e-3);
+    Assert.assertEquals(Math.exp(0) / (1 + Math.exp(0) + Math.exp(-2)), v.get(1), 1e-3);
+    Assert.assertEquals(Math.exp(-2) / (1 + Math.exp(0) + Math.exp(-2)), v.get(2), 1e-3);
 
     lr.setBeta(1, 1, 3);
 
     v = lr.classifyFullVector(new DenseVector(new double[]{1, 1}));
     Assert.assertEquals(1.0, v.zSum(), 1e-8);
-    Assert.assertEquals(Math.exp(0) / (1 + Math.exp(0) + Math.exp(1)), v.get(0), 1e-8);
-    Assert.assertEquals(Math.exp(1) / (1 + Math.exp(0) + Math.exp(1)), v.get(1), 1e-8);
-    Assert.assertEquals(1 / (1 + Math.exp(0) + Math.exp(1)), v.get(2), 1e-8);
+    Assert.assertEquals(1 / (1 + Math.exp(0) + Math.exp(1)), v.get(0), 1e-8);
+    Assert.assertEquals(Math.exp(0) / (1 + Math.exp(0) + Math.exp(1)), v.get(1), 1e-8);
+    Assert.assertEquals(Math.exp(1) / (1 + Math.exp(0) + Math.exp(1)), v.get(2), 1e-8);
   }
 
   @Test
   public void testTrain() throws Exception {
     Matrix input = readCsv("/sgd.csv");
-    Matrix results = readCsv("/r.csv");
-    Matrix logP = readCsv("/logP.csv");
 
     OnlineLogisticRegression lr10 = new OnlineLogisticRegression(2, 8, new L1()).lambda(10).learningRate(0.1);
     OnlineLogisticRegression lr1 = new OnlineLogisticRegression(2, 8, new L1()).lambda(1).learningRate(0.1);
     OnlineLogisticRegression lr01 = new OnlineLogisticRegression(2, 8, new L1()).lambda(0.1).learningRate(0.1);
 
-    RandomUtils.useTestSeed();
     Random gen = RandomUtils.getRandom();
     int[] permutation = new int[60];
     permutation[0] = 0;
@@ -102,6 +112,80 @@ public class OnlineLogisticRegressionTest {
         lr01.train(row / (input.numRows() / 2), input.getRow(row));
       }
     }
+  }
+
+  @Test
+  public void testTrainingConvergenceToReference() throws Exception {
+    // build a linearly separable training set by using a randomly initialized
+    // reference model used to classify a random set of previously unlabeled
+    // input vectors
+
+    int numCategories = 3;
+    int numFeatures = 420;
+    int trainingSetSize = 100;
+    Random rng = RandomUtils.getRandom(0);
+    OnlineLogisticRegression reference = new OnlineLogisticRegression(
+        numCategories, numFeatures, new UniformPrior(), rng);
+
+    Matrix input = randomDenseMatrix(trainingSetSize, numFeatures, 1, rng);
+    int[] labels = new int[trainingSetSize];
+    for (int i = 0; i < trainingSetSize; i++) {
+      labels[i] = reference.classifyFullVector(input.getRow(i)).maxValueIndex();
+    }
+
+    // init a batch of new models with random parameters and train it with the
+    // reference dataset
+    double learningRate = 0.1;
+    double lambda = 0.001;
+
+    OnlineLogisticRegression lrL1 = new OnlineLogisticRegression(numCategories,
+        numFeatures, new L1()).lambda(lambda).learningRate(learningRate);
+    OnlineLogisticRegression lrL2 = new OnlineLogisticRegression(numCategories,
+        numFeatures, new L2(1.0)).lambda(lambda).learningRate(learningRate);
+    OnlineLogisticRegression lrU = new OnlineLogisticRegression(numCategories,
+        numFeatures, new UniformPrior()).lambda(lambda).learningRate(learningRate);
+    OnlineLogisticRegression lrT = new OnlineLogisticRegression(numCategories,
+        numFeatures, new TPrior(1.0)).lambda(lambda).learningRate(learningRate);
+
+    List<OnlineLogisticRegression> models = Arrays.asList(lrL1, lrL2, lrU, lrT);
+
+    int epochs = 3;
+
+    for (OnlineLogisticRegression model : models) {
+
+      // untrained model as a high error rate
+      double untrainedErrorRate = misClassificationRate(model, input, labels);
+      double minExpectedRate = 0.5;
+      Assert.assertTrue(String.format(
+          "mis-classification rate '%f' is lower than expected '%f'",
+          untrainedErrorRate, minExpectedRate),
+          untrainedErrorRate > minExpectedRate);
+
+      // train the model
+      for (int e = 0; e < epochs; e++) {
+        for (int i = 0; i < trainingSetSize; i++) {
+          model.train(labels[i], input.getRow(i));
+        }
+      }
+      // check the convergence
+      double trainedErrorRate = misClassificationRate(model, input, labels);
+      double maxExpectedRate = 0.001;
+      Assert.assertTrue(String.format(
+          "mis-classification rate '%f' is larger than expected '%f'", trainedErrorRate,
+          maxExpectedRate), trainedErrorRate < maxExpectedRate);
+    }
+  }
+
+  private double misClassificationRate(OnlineLogisticRegression model,
+      Matrix input, int[] labels) {
+    double count = 0;
+    for (int i = 0; i < labels.length; i++) {
+      Vector classification = model.classifyFullVector(input.getRow(i));
+      if (labels[i] != classification.maxValueIndex()) {
+        count++;
+      }
+    }
+    return count / labels.length;
   }
 
   private Matrix readCsv(String resourceName) {
@@ -134,5 +218,17 @@ public class OnlineLogisticRegressionTest {
     }
 
     return r;
+  }
+
+  private Matrix randomDenseMatrix(int rows, int columns, double variance,
+      Random rng) {
+    // TODO: factorize this utility somewhere
+    DenseMatrix matrix = new DenseMatrix(rows, columns);
+    for (int row = 0; row < rows; row++) {
+      for (int column = 0; column < columns; column++) {
+        matrix.set(row, column, rng.nextGaussian() * variance);
+      }
+    }
+    return matrix;
   }
 }

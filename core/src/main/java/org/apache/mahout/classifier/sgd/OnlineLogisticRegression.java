@@ -39,15 +39,18 @@ public class OnlineLogisticRegression {
   private TermRandomizer randomizer;
 
   public OnlineLogisticRegression(int numCategories, int numFeatures, PriorFunction prior) {
+    this(numCategories, numFeatures, prior, RandomUtils.getRandom());
+  }
+
+  public OnlineLogisticRegression(int numCategories, int numFeatures, PriorFunction prior, Random rng) {
     this.numCategories = numCategories;
     this.prior = prior;
 
     updateSteps = new DenseVector(numFeatures);
     beta = new DenseMatrix(numCategories - 1, numFeatures);
-    Random gen = RandomUtils.getRandom();
     for (int row = 0; row < numCategories - 1; row++) {
       for (int column = 0; column < numFeatures; column++) {
-        beta.set(row, column, gen.nextGaussian() * 0.001);
+        beta.set(row, column, rng.nextGaussian() * 0.001);
       }
     }
   }
@@ -128,8 +131,8 @@ public class OnlineLogisticRegression {
   public Vector classifyFullVector(Vector instance) {
     Vector v = classify(instance);
     Vector r = new DenseVector(numCategories);
-    r.viewPart(0, numCategories - 1).assign(v);
-    r.setQuick(numCategories - 1, 1 - r.zSum());
+    r.setQuick(0, 1 - v.zSum());
+    r.viewPart(1, numCategories - 1).assign(v);
     return r;
   }
 
@@ -167,14 +170,6 @@ public class OnlineLogisticRegression {
     }
 
     // TODO can report log likelihood here
-
-    // remember that these elements got updated
-    Iterator<Vector.Element> i = instance.iterateNonZero();
-    while (i.hasNext()) {
-      Vector.Element element = i.next();
-      // TODO put confidence weighting here or use per feature annealing
-      updateSteps.setQuick(element.index(), step);
-    }
   }
 
   private void regularize(Vector instance) {
@@ -193,6 +188,13 @@ public class OnlineLogisticRegression {
           beta.set(i, j, prior.age(beta.get(i, j), missingUpdates, lambda * learningRate));
         }
       }
+    }
+    // remember that these elements got updated
+    Iterator<Vector.Element> i = instance.iterateNonZero();
+    while (i.hasNext()) {
+      Vector.Element element = i.next();
+      // TODO put confidence weighting here or use per feature annealing
+      updateSteps.setQuick(element.index(), step);
     }
   }
 
