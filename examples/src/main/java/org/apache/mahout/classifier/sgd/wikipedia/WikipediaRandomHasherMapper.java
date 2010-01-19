@@ -20,13 +20,13 @@ package org.apache.mahout.classifier.sgd.wikipedia;
 import java.io.IOException;
 import java.io.StringReader;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
 import java.util.regex.Pattern;
 
 import org.apache.commons.lang.ArrayUtils;
 import org.apache.commons.lang.StringEscapeUtils;
-import org.apache.hadoop.io.DefaultStringifier;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapred.JobConf;
@@ -34,7 +34,6 @@ import org.apache.hadoop.mapred.MapReduceBase;
 import org.apache.hadoop.mapred.Mapper;
 import org.apache.hadoop.mapred.OutputCollector;
 import org.apache.hadoop.mapred.Reporter;
-import org.apache.hadoop.util.GenericsUtil;
 import org.apache.lucene.analysis.TokenStream;
 import org.apache.lucene.analysis.tokenattributes.TermAttribute;
 import org.apache.lucene.wikipedia.analysis.WikipediaTokenizer;
@@ -73,27 +72,17 @@ public class WikipediaRandomHasherMapper extends MapReduceBase implements
     // learner that assume I.I.D. samples).
     seed = job.getInt("wikipedia.random.seed", seed);
     rng = RandomUtils.getRandom(seed);
-    try {
 
-      // load the list of category labels to look for
-      if (inputCategories == null) {
-        List<String> newCategories = new ArrayList<String>();
-        DefaultStringifier<List<String>> setStringifier = new DefaultStringifier<List<String>>(
-            job, GenericsUtil.getClass(newCategories));
-        String categoriesStr = setStringifier.toString(newCategories);
-        categoriesStr = job.get("wikipedia.categories", categoriesStr);
-        inputCategories = setStringifier.fromString(categoriesStr);
-      }
+    // load the list of category labels to look for
+    String categoriesStr = job.get("wikipedia.categories", "");
+    inputCategories = Arrays.asList(categoriesStr.split(","));
 
-      // load the randomizer that is used to hash the term of the document
-      int probes = job.getInt("randomizer.probes", 2);
-      int numFeatures = job.getInt("randomizer.numFeatures", 80000);
-      randomizer = new BinaryRandomizer(probes, numFeatures);
-      allPairs = job.getBoolean("randomizer.allPairs", false);
-      window = job.getInt("randomizer.window", 2);
-    } catch (Exception e) {
-      throw new IllegalStateException(e);
-    }
+    // load the randomizer that is used to hash the term of the document
+    int probes = job.getInt("randomizer.probes", 2);
+    int numFeatures = job.getInt("randomizer.numFeatures", 80000);
+    randomizer = new BinaryRandomizer(probes, numFeatures);
+    allPairs = job.getBoolean("randomizer.allPairs", false);
+    window = job.getInt("randomizer.window", 2);
   }
 
   @Override

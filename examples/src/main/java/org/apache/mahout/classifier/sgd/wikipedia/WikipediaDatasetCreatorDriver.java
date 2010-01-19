@@ -29,18 +29,19 @@ import org.apache.commons.cli2.builder.ArgumentBuilder;
 import org.apache.commons.cli2.builder.DefaultOptionBuilder;
 import org.apache.commons.cli2.builder.GroupBuilder;
 import org.apache.commons.cli2.commandline.Parser;
+import org.apache.commons.lang.StringUtils;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.io.DefaultStringifier;
+import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.mapred.FileInputFormat;
 import org.apache.hadoop.mapred.FileOutputFormat;
 import org.apache.hadoop.mapred.JobClient;
 import org.apache.hadoop.mapred.JobConf;
-import org.apache.hadoop.mapred.SequenceFileAsBinaryOutputFormat;
-import org.apache.hadoop.util.GenericsUtil;
+import org.apache.hadoop.mapred.SequenceFileOutputFormat;
 import org.apache.mahout.classifier.bayes.XmlInputFormat;
 import org.apache.mahout.common.CommandLineUtil;
 import org.apache.mahout.common.FileLineIterable;
+import org.apache.mahout.math.MultiLabelVectorWritable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -136,9 +137,11 @@ public final class WikipediaDatasetCreatorDriver {
     Path outPath = new Path(output);
     FileOutputFormat.setOutputPath(conf, outPath);
     conf.setMapperClass(WikipediaRandomHasherMapper.class);
-    conf.setInputFormat(XmlInputFormat.class);
     conf.setReducerClass(WikipediaIdentityReducer.class);
-    conf.setOutputFormat(SequenceFileAsBinaryOutputFormat.class);
+    conf.setInputFormat(XmlInputFormat.class);
+    conf.setOutputFormat(SequenceFileOutputFormat.class);
+    conf.setOutputKeyClass(LongWritable.class);
+    conf.setOutputValueClass(MultiLabelVectorWritable.class);
 
     FileSystem dfs = FileSystem.get(outPath.toUri(), conf);
     if (dfs.exists(outPath)) {
@@ -149,11 +152,7 @@ public final class WikipediaDatasetCreatorDriver {
     for (String line : new FileLineIterable(new File(catFile))) {
       categories.add(line.trim().toLowerCase());
     }
-    DefaultStringifier<Set<String>> setStringifier = new DefaultStringifier<Set<String>>(
-        conf, GenericsUtil.getClass(categories));
-    String categoriesStr = setStringifier.toString(categories);
-    conf.set("wikipedia.categories", categoriesStr);
-
+    conf.set("wikipedia.categories", StringUtils.join(categories, ','));
     client.setConf(conf);
     JobClient.runJob(conf);
   }
