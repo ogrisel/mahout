@@ -136,29 +136,38 @@ public class OnlineLogisticRegressionTest {
     // init a batch of new models with random parameters and train it with the
     // reference dataset
     double learningRate = 0.1;
-    double lambda = 0.001;
+    double lambda = 0.005;
 
     OnlineLogisticRegression lrL1 = new OnlineLogisticRegression(numCategories,
         numFeatures, new L1()).lambda(lambda).learningRate(learningRate);
     OnlineLogisticRegression lrL2 = new OnlineLogisticRegression(numCategories,
         numFeatures, new L2(1.0)).lambda(lambda).learningRate(learningRate);
     OnlineLogisticRegression lrU = new OnlineLogisticRegression(numCategories,
-        numFeatures, new UniformPrior()).lambda(lambda).learningRate(learningRate);
+        numFeatures, new UniformPrior()).lambda(lambda).learningRate(
+        learningRate);
     OnlineLogisticRegression lrT = new OnlineLogisticRegression(numCategories,
         numFeatures, new TPrior(1.0)).lambda(lambda).learningRate(learningRate);
 
     List<OnlineLogisticRegression> models = Arrays.asList(lrL1, lrL2, lrU, lrT);
 
-    int epochs = 3;
+    int epochs = 10;
 
     for (OnlineLogisticRegression model : models) {
       // untrained model has a high error rate
       double untrainedErrorRate = misClassificationRate(model, input, labels);
-      double minExpectedRate = 0.5;
+      double expectedMinRate = 0.5;
       Assert.assertTrue(String.format(
-          "mis-classification rate '%f' is lower than expected '%f'",
-          untrainedErrorRate, minExpectedRate),
-          untrainedErrorRate > minExpectedRate);
+          "misclassification rate '%f' is lower than expected '%f'",
+          untrainedErrorRate, expectedMinRate),
+          untrainedErrorRate > expectedMinRate);
+
+      // check that untrained model is dense
+      double untrainedDensity = density(model);
+      double minExpectedDensity = 0.99;
+      Assert.assertTrue(String.format(
+          "model density '%f' is lower than expected '%f'",
+          untrainedDensity, minExpectedDensity),
+          untrainedDensity > minExpectedDensity);
 
       // train the model
       for (int e = 0; e < epochs; e++) {
@@ -167,13 +176,45 @@ public class OnlineLogisticRegressionTest {
         }
       }
 
-      // check the convergence
+      // check the convergence of the parameters towards accurate models
       double trainedErrorRate = misClassificationRate(model, input, labels);
-      double maxExpectedRate = 0.001;
+      double expectedMaxRate = 0.01;
       Assert.assertTrue(String.format(
-          "mis-classification rate '%f' is larger than expected '%f'", trainedErrorRate,
-          maxExpectedRate), trainedErrorRate < maxExpectedRate);
+          "misclassification rate '%f' is larger than expected '%f'",
+          trainedErrorRate, expectedMaxRate),
+          trainedErrorRate < expectedMaxRate);
+
+      if (model.getPrior().isSparsityInducing()) {
+        // check that model trained with a L1 Prior is sparse according to the
+        // regularization strength lambda
+        // NB. this example use a dataset that was generated from a dense
+        // reference model hence one cannot expect an important sparsity without
+        // loosing much in accuracy
+        double actualDensity = density(model);
+        double maxExpectedDensity = 0.85;
+        Assert.assertTrue(String.format(
+            "model density '%f' is larger than expected '%f'",
+            actualDensity, maxExpectedDensity),
+            actualDensity < maxExpectedDensity);
+      } else {
+        // check that model trained with non-L1 Prior is dense whatever the
+        // regularization strength lambda
+        double actualDensity = density(model);
+        Assert.assertTrue(String.format(
+            "model density '%f' is lower than expected '%f'",
+            actualDensity, minExpectedDensity),
+            actualDensity > minExpectedDensity);
+      }
     }
+  }
+
+  private double density(OnlineLogisticRegression model) {
+    double count = 0.0;
+    Matrix beta = model.getBeta();
+    for (int row = 0; row < beta.numRows(); row++) {
+      count += beta.getRow(row).norm(0.0);
+    }
+    return count / (beta.numCols() * beta.numRows());
   }
 
   private double misClassificationRate(OnlineLogisticRegression model,

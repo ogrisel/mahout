@@ -147,9 +147,6 @@ public class OnlineLogisticRegression {
 
     double learningRate = currentLearningRate();
 
-    // push coefficients back to zero based on the prior
-    regularize(instance);
-
     // what does the current model say?
     Vector v = classify(instance);
 
@@ -169,10 +166,20 @@ public class OnlineLogisticRegression {
       }
     }
 
+    if (prior.isSparsityInducing()) {
+      // eagerly re-apply regularization for the last update step to benefit
+      // from promised sparsity in the parameters
+      regularize(instance, true);
+    }
+
     // TODO can report log likelihood here
   }
 
   private void regularize(Vector instance) {
+    regularize(instance, false);
+  }
+
+  private void regularize(Vector instance, boolean forceOne) {
     // anneal learning rate
     double learningRate = currentLearningRate();
 
@@ -180,21 +187,22 @@ public class OnlineLogisticRegression {
     for (int i = 0; i < numCategories - 1; i++) {
       Iterator<Vector.Element> nonZeros = instance.iterateNonZero();
       while (nonZeros.hasNext()) {
-        Vector.Element updateLocation = nonZeros.next();
-        int j = updateLocation.index();
-        double missingUpdates = step - updateSteps.get(j);
+        int j = nonZeros.next().index();
+        double missingUpdates = forceOne ? 1 : step - updateSteps.get(j);
         if (missingUpdates > 0) {
           // TODO can we put confidence weighting here or use per feature annealing?
           beta.set(i, j, prior.age(beta.get(i, j), missingUpdates, lambda * learningRate));
         }
       }
     }
-    // remember that these elements got updated
-    Iterator<Vector.Element> i = instance.iterateNonZero();
-    while (i.hasNext()) {
-      Vector.Element element = i.next();
-      // TODO put confidence weighting here or use per feature annealing
-      updateSteps.setQuick(element.index(), step);
+    if (!forceOne) {
+      // remember that these elements got updated
+      Iterator<Vector.Element> i = instance.iterateNonZero();
+      while (i.hasNext()) {
+        Vector.Element element = i.next();
+        // TODO put confidence weighting here or use per feature annealing
+        updateSteps.setQuick(element.index(), step);
+      }
     }
   }
 

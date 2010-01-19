@@ -25,4 +25,9 @@ public class L1 extends PriorFunction {
   public double logP(double beta_ij) {
     return - Math.abs(beta_ij) ;
   }
+
+  @Override
+  public boolean isSparsityInducing() {
+    return true;
+  }
 }

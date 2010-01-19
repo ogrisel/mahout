@@ -19,4 +19,8 @@ public abstract class PriorFunction {
    * @return                The log probability.
    */
   public abstract double logP(double beta_ij);
+
+  public boolean isSparsityInducing() {
+    return false;
+  }
 }
