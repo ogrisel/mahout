@@ -118,9 +118,6 @@ public final class WikipediaDatasetCreatorDriver {
    *          the output pathname String
    * @param catFile
    *          the file containing the Wikipedia categories
-   * @param exactMatchOnly
-   *          if true, then the Wikipedia category must match exactly instead of
-   *          simply containing the category string
    */
   public static void runJob(String input, String output, String catFile)
       throws IOException {
