@@ -43,7 +43,7 @@ import org.apache.mahout.common.RandomUtils;
 import org.apache.mahout.math.MultiLabelVectorWritable;
 
 /**
- * Vectorize Wikipedia Articles and use the categories tags as labels. The key
+ * Vectorize Wikipedia articles and use the categories tags as labels. The key
  * of the emitted intermediate data is voluntarily randomized so to meet the
  * I.I.D. assumption of the stochastic learner living in the reducer.
  *
@@ -57,12 +57,15 @@ public class WikipediaRandomHasherMapper extends MapReduceBase implements
       .compile("</text>");
 
   private List<String> inputCategories;
+  private double maxUnlabeledInstanceRate;
+  private long unlabeledOuputCount = 0; // use shared counters instead?
+  private long totalOutputCount = 0;
   private int seed = 42;
   private Random rng;
   private TermRandomizer randomizer;
   private boolean allPairs;
   private int window;
-  private final LongWritable shuffledKey = new LongWritable();
+  private final LongWritable shufflingKey = new LongWritable();
   private final MultiLabelVectorWritable labeledVectorValue = new MultiLabelVectorWritable();
 
   @Override
@@ -77,19 +80,23 @@ public class WikipediaRandomHasherMapper extends MapReduceBase implements
     String categoriesStr = job.get("wikipedia.categories", "");
     inputCategories = Arrays.asList(categoriesStr.split(","));
 
+    // reasonable default to avoid generating to many unlabeled instances
+    maxUnlabeledInstanceRate = 1.0 / inputCategories.size();
+
     // load the randomizer that is used to hash the term of the document
     int probes = job.getInt("randomizer.probes", 2);
     int numFeatures = job.getInt("randomizer.numFeatures", 80000);
     randomizer = new BinaryRandomizer(probes, numFeatures);
     allPairs = job.getBoolean("randomizer.allPairs", false);
     window = job.getInt("randomizer.window", 2);
+
   }
 
   @Override
   public void map(LongWritable key, Text value,
       OutputCollector<LongWritable,MultiLabelVectorWritable> collector,
       Reporter reporter) throws IOException {
-    shuffledKey.set(rng.nextLong());
+    shufflingKey.set(rng.nextLong());
 
     // extract the raw markup from the XML dump slice
     String document = StringEscapeUtils.unescapeHtml(CLOSE_TEXT_TAG_PATTERN
@@ -98,7 +105,18 @@ public class WikipediaRandomHasherMapper extends MapReduceBase implements
         .replaceAll(""));
 
     // collect the categories as indexes
-    labeledVectorValue.setLabels(findMatchingCategories(document));
+    int[] categories = findMatchingCategories(document);
+    labeledVectorValue.setLabels(categories);
+
+    // ensure we are not
+    if (categories.length == 0) {
+      if (totalOutputCount != 0
+          && ((double) unlabeledOuputCount) / totalOutputCount > maxUnlabeledInstanceRate) {
+        return;
+      }
+      unlabeledOuputCount++;
+    }
+    totalOutputCount++;
 
     // strip the wikimarkup and hash the terms using the randomizer
     TokenStream stream = new WikipediaTokenizer(new StringReader(document));
@@ -113,7 +131,7 @@ public class WikipediaRandomHasherMapper extends MapReduceBase implements
     // using the profiler).
     labeledVectorValue.set(randomizer.randomizedInstance(allTerms, window,
         allPairs));
-    collector.collect(shuffledKey, labeledVectorValue);
+    collector.collect(shufflingKey, labeledVectorValue);
   }
 
   private int[] findMatchingCategories(String document) {
