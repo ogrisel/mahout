@@ -30,6 +30,8 @@ import org.apache.commons.cli2.builder.DefaultOptionBuilder;
 import org.apache.commons.cli2.builder.GroupBuilder;
 import org.apache.commons.cli2.commandline.Parser;
 import org.apache.commons.lang.StringUtils;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.LongWritable;
@@ -38,6 +40,9 @@ import org.apache.hadoop.mapred.FileOutputFormat;
 import org.apache.hadoop.mapred.JobClient;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.SequenceFileOutputFormat;
+import org.apache.hadoop.mapred.lib.IdentityReducer;
+import org.apache.hadoop.util.Tool;
+import org.apache.hadoop.util.ToolRunner;
 import org.apache.mahout.classifier.bayes.XmlInputFormat;
 import org.apache.mahout.common.CommandLineUtil;
 import org.apache.mahout.common.FileLineIterable;
@@ -49,13 +54,20 @@ import org.slf4j.LoggerFactory;
  * Create and run the Wikipedia dataset creator suitable for stochastic gradient
  * descent algorithms.
  */
-public final class WikipediaDatasetCreatorDriver {
+public final class WikipediaDatasetCreatorDriver extends Configured implements
+    Tool {
   private static final Logger log = LoggerFactory
       .getLogger(WikipediaDatasetCreatorDriver.class);
 
   private WikipediaDatasetCreatorDriver() {}
 
-  public static void main(String[] args) throws IOException {
+  public static void main(String[] args) throws Exception {
+    int res = ToolRunner.run(new Configuration(),
+        new WikipediaDatasetCreatorDriver(), args);
+    System.exit(res);
+  }
+
+  public int run(String[] args) {
     DefaultOptionBuilder obuilder = new DefaultOptionBuilder();
     ArgumentBuilder abuilder = new ArgumentBuilder();
     GroupBuilder gbuilder = new GroupBuilder();
@@ -96,16 +108,18 @@ public final class WikipediaDatasetCreatorDriver {
       CommandLine cmdLine = parser.parse(args);
       if (cmdLine.hasOption(helpOpt)) {
         CommandLineUtil.printHelp(group);
-        return;
+        return 0;
       }
 
       String inputPath = (String) cmdLine.getValue(dirInputPathOpt);
       String outputPath = (String) cmdLine.getValue(dirOutputPathOpt);
       String catFile = (String) cmdLine.getValue(categoriesOpt);
       runJob(inputPath, outputPath, catFile);
+      return 0;
     } catch (Exception e) {
       log.error(e.getMessage(), e);
       CommandLineUtil.printHelp(group);
+      return 1;
     }
   }
 
@@ -128,13 +142,11 @@ public final class WikipediaDatasetCreatorDriver {
           + catFile);
     }
     conf.set("key.value.separator.in.input.line", " ");
-    conf.set("xmlinput.start", "<text xml:space=\"preserve\">");
-    conf.set("xmlinput.end", "</text>");
     FileInputFormat.setInputPaths(conf, new Path(input));
     Path outPath = new Path(output);
     FileOutputFormat.setOutputPath(conf, outPath);
     conf.setMapperClass(WikipediaRandomHasherMapper.class);
-    conf.setReducerClass(WikipediaIdentityReducer.class);
+    conf.setReducerClass(IdentityReducer.class);
     conf.setInputFormat(XmlInputFormat.class);
     conf.setOutputFormat(SequenceFileOutputFormat.class);
     conf.setOutputKeyClass(LongWritable.class);
@@ -153,4 +165,5 @@ public final class WikipediaDatasetCreatorDriver {
     client.setConf(conf);
     JobClient.runJob(conf);
   }
+
 }
