@@ -160,6 +160,10 @@ public final class WikipediaDatasetCreatorDriver extends Configured implements
     conf.setOutputKeyClass(LongWritable.class);
     conf.setOutputValueClass(MultiLabelVectorWritable.class);
 
+    // we need to extract the title, not just the markup content
+    conf.set(XmlInputFormat.START_TAG_KEY, "<page>");
+    conf.set(XmlInputFormat.END_TAG_KEY, "</page>");
+
     FileSystem dfs = FileSystem.get(outPath.toUri(), conf);
     if (dfs.exists(outPath)) {
       dfs.delete(outPath, true);

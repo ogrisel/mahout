@@ -21,8 +21,11 @@ import java.io.IOException;
 import java.io.StringReader;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Random;
+import java.util.Set;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.apache.commons.lang.ArrayUtils;
@@ -41,6 +44,7 @@ import org.apache.mahout.classifier.sgd.BinaryRandomizer;
 import org.apache.mahout.classifier.sgd.TermRandomizer;
 import org.apache.mahout.common.RandomUtils;
 import org.apache.mahout.math.MultiLabelVectorWritable;
+import org.apache.mahout.math.Vector;
 
 /**
  * Vectorize Wikipedia articles and use the categories tags as labels. The key
@@ -51,13 +55,21 @@ import org.apache.mahout.math.MultiLabelVectorWritable;
 public class WikipediaRandomHasherMapper extends MapReduceBase implements
     Mapper<LongWritable,Text,LongWritable,MultiLabelVectorWritable> {
 
-  private static final Pattern OPEN_TEXT_TAG_PATTERN = Pattern
-      .compile("<text xml:space=\"preserve\">");
-  private static final Pattern CLOSE_TEXT_TAG_PATTERN = Pattern
-      .compile("</text>");
+  private static final Pattern TEXT_TAG_PATTERN = Pattern.compile(
+      "<text xml:space=\"preserve\">(.*)?</text>", Pattern.MULTILINE
+          | Pattern.DOTALL);
 
-  private List<String> inputCategories;
+  private static final Pattern TITLE_TAG_PATTERN = Pattern
+      .compile("<title>(.*)?</title>");
+
+  private static final Pattern CATEGORY_PATTERN = Pattern
+      .compile("\\[\\[Category:(.*)?\\]\\]");
+
+  private static final String REDIRECT_PREFIX = "#REDIRECT";
+
+  private final List<String> inputCategories = new ArrayList<String>();
   private double maxUnlabeledInstanceRate;
+  private boolean exactMatch = false;
   private long unlabeledOuputCount = 0; // use shared counters instead?
   private long totalOutputCount = 0;
   private int seed = 42;
@@ -77,8 +89,12 @@ public class WikipediaRandomHasherMapper extends MapReduceBase implements
     rng = RandomUtils.getRandom(seed);
 
     // load the list of category labels to look for
-    String categoriesStr = job.get("wikipedia.categories", "");
-    inputCategories = Arrays.asList(categoriesStr.split(","));
+    inputCategories.clear();
+    String categoriesParamValue = job.get("wikipedia.categories", "");
+    for (String category : Arrays.asList(categoriesParamValue.split(","))) {
+      inputCategories.add(category.toLowerCase().trim());
+    }
+    exactMatch = job.getBoolean("wikipedia.categories.exactMatch", false);
 
     // reasonable default to avoid generating to many unlabeled instances
     maxUnlabeledInstanceRate = 1.0 / inputCategories.size();
@@ -89,7 +105,6 @@ public class WikipediaRandomHasherMapper extends MapReduceBase implements
     randomizer = new BinaryRandomizer(probes, numFeatures);
     allPairs = job.getBoolean("randomizer.allPairs", false);
     window = job.getInt("randomizer.window", 2);
-
   }
 
   @Override
@@ -99,13 +114,16 @@ public class WikipediaRandomHasherMapper extends MapReduceBase implements
     shufflingKey.set(rng.nextLong());
 
     // extract the raw markup from the XML dump slice
-    String document = StringEscapeUtils.unescapeHtml(CLOSE_TEXT_TAG_PATTERN
-        .matcher(
-            OPEN_TEXT_TAG_PATTERN.matcher(value.toString()).replaceFirst(""))
-        .replaceAll(""));
+    Matcher textMatcher = TEXT_TAG_PATTERN.matcher(value.toString());
+    textMatcher.find();
+    String rawMarkup = StringEscapeUtils.unescapeHtml(textMatcher.group(1))
+        .trim();
+    if (rawMarkup.startsWith(REDIRECT_PREFIX)) {
+      return;
+    }
 
     // collect the categories as indexes
-    int[] categories = findMatchingCategories(document);
+    int[] categories = findMatchingCategories(rawMarkup);
     labeledVectorValue.setLabels(categories);
 
     // ensure we are not
@@ -119,7 +137,7 @@ public class WikipediaRandomHasherMapper extends MapReduceBase implements
     totalOutputCount++;
 
     // strip the wikimarkup and hash the terms using the randomizer
-    TokenStream stream = new WikipediaTokenizer(new StringReader(document));
+    TokenStream stream = new WikipediaTokenizer(new StringReader(rawMarkup));
     List<String> allTerms = new ArrayList<String>();
     TermAttribute termAtt = (TermAttribute) stream
         .addAttribute(TermAttribute.class);
@@ -129,27 +147,37 @@ public class WikipediaRandomHasherMapper extends MapReduceBase implements
     // TODO: refactor randomizedInstance to take a token stream as input and
     // avoid all those wasted string allocations (or prove they are harmless
     // using the profiler).
-    labeledVectorValue.set(randomizer.randomizedInstance(allTerms, window,
-        allPairs));
+    Vector vector = randomizer.randomizedInstance(allTerms, window, allPairs);
+
+    Matcher titleMatcher = TITLE_TAG_PATTERN.matcher(value.toString());
+    titleMatcher.find();
+    String name = titleMatcher.group(1);
+    vector.setName(name);
+    labeledVectorValue.set(vector);
+    if (totalOutputCount % 100 == 0) {
+      reporter.setStatus(String.format(
+          "Extracted %d instances so far, latest is: '%s' with categories: %s",
+          totalOutputCount, name, Arrays.toString(categories)));
+    }
     collector.collect(shufflingKey, labeledVectorValue);
   }
 
-  private int[] findMatchingCategories(String document) {
-    List<Integer> matchingCategories = new ArrayList<Integer>();
-    int startIndex = 0;
-    int categorystart;
-    while ((categorystart = document.indexOf("[[Category:", startIndex)) != -1) {
-      categorystart += 11;
-      int endIndex = document.indexOf("]]", categorystart);
-      if (endIndex >= document.length() || endIndex < 0) {
-        break;
+  private int[] findMatchingCategories(String rawMarkup) {
+    Set<Integer> matchingCategories = new HashSet<Integer>();
+    Matcher matcher = CATEGORY_PATTERN.matcher(rawMarkup);
+    while (matcher.find()) {
+      String category = matcher.group(1).toLowerCase().trim();
+      if (exactMatch) {
+        if (inputCategories.contains(category)) {
+          matchingCategories.add(inputCategories.indexOf(category));
+        }
+      } else {
+        for (int i = 0; i < inputCategories.size(); i++) {
+          if (category.contains(inputCategories.get(i))) {
+            matchingCategories.add(i);
+          }
+        }
       }
-      String category = document.substring(categorystart, endIndex)
-          .toLowerCase().trim();
-      if (inputCategories.contains(category)) {
-        matchingCategories.add(inputCategories.indexOf(category));
-      }
-      startIndex = endIndex;
     }
     return ArrayUtils.toPrimitive(matchingCategories
         .toArray(new Integer[matchingCategories.size()]));
