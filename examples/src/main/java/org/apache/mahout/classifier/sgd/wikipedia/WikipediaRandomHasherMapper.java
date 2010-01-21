@@ -121,6 +121,7 @@ public class WikipediaRandomHasherMapper extends MapReduceBase implements
     Matcher textMatcher = TEXT_TAG_PATTERN.matcher(value.toString());
     if (!textMatcher.find()) {
       reporter.incrCounter(SKIPED_ARTICLES.MISSING_MARKUP, 1);
+      return;
     }
     String rawMarkup = StringEscapeUtils.unescapeHtml(textMatcher.group(1))
         .trim();
@@ -160,6 +161,7 @@ public class WikipediaRandomHasherMapper extends MapReduceBase implements
     Matcher titleMatcher = TITLE_TAG_PATTERN.matcher(value.toString());
     if (!titleMatcher.find()) {
       reporter.incrCounter(SKIPED_ARTICLES.MISSING_TITLE, 1);
+      return;
     }
     String name = titleMatcher.group(1);
     vector.setName(name);
