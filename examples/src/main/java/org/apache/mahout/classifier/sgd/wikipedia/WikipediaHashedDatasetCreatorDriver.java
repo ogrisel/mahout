@@ -141,30 +141,29 @@ public final class WikipediaHashedDatasetCreatorDriver extends Configured
    * @param catFile
    *          the file containing the Wikipedia categories, one entry per line
    */
-  public static void runJob(String input, String output, String catFile)
+  public void runJob(String input, String output, String catFile)
       throws IOException {
-    JobClient client = new JobClient();
-    JobConf conf = new JobConf(WikipediaHashedDatasetCreatorDriver.class);
+    JobConf job = new JobConf(getConf(), WikipediaHashedDatasetCreatorDriver.class);
     if (log.isInfoEnabled()) {
       log.info("Input: " + input + " Out: " + output + " Categories: "
           + catFile);
     }
-    conf.set("key.value.separator.in.input.line", " ");
-    FileInputFormat.setInputPaths(conf, new Path(input));
+    job.set("key.value.separator.in.input.line", " ");
+    FileInputFormat.setInputPaths(job, new Path(input));
     Path outPath = new Path(output);
-    FileOutputFormat.setOutputPath(conf, outPath);
-    conf.setMapperClass(WikipediaRandomHasherMapper.class);
-    conf.setReducerClass(IdentityReducer.class);
-    conf.setInputFormat(XmlInputFormat.class);
-    conf.setOutputFormat(SequenceFileOutputFormat.class);
-    conf.setOutputKeyClass(LongWritable.class);
-    conf.setOutputValueClass(MultiLabelVectorWritable.class);
+    FileOutputFormat.setOutputPath(job, outPath);
+    job.setMapperClass(WikipediaRandomHasherMapper.class);
+    job.setReducerClass(IdentityReducer.class);
+    job.setInputFormat(XmlInputFormat.class);
+    job.setOutputFormat(SequenceFileOutputFormat.class);
+    job.setOutputKeyClass(LongWritable.class);
+    job.setOutputValueClass(MultiLabelVectorWritable.class);
 
     // we need to extract the title, not just the markup content
-    conf.set(XmlInputFormat.START_TAG_KEY, "<page>");
-    conf.set(XmlInputFormat.END_TAG_KEY, "</page>");
+    job.set(XmlInputFormat.START_TAG_KEY, "<page>");
+    job.set(XmlInputFormat.END_TAG_KEY, "</page>");
 
-    FileSystem dfs = FileSystem.get(outPath.toUri(), conf);
+    FileSystem dfs = FileSystem.get(outPath.toUri(), job);
     if (dfs.exists(outPath)) {
       dfs.delete(outPath, true);
     }
@@ -173,9 +172,8 @@ public final class WikipediaHashedDatasetCreatorDriver extends Configured
     for (String line : new FileLineIterable(new File(catFile))) {
       categories.add(line.trim().toLowerCase());
     }
-    conf.set("wikipedia.categories", StringUtils.join(categories, ','));
-    client.setConf(conf);
-    JobClient.runJob(conf);
+    job.set("wikipedia.categories", StringUtils.join(categories, ','));
+    JobClient.runJob(job);
   }
 
 }
