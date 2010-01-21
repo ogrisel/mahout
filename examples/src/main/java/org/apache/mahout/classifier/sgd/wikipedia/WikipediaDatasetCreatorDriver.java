@@ -51,8 +51,16 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Create and run the Wikipedia dataset creator suitable for stochastic gradient
- * descent algorithms.
+ * Extract a vectorized dataset from a chunked Wikipedia XML dump. The generated
+ * dataset is suitable for the training of a Logistic Regression model using
+ * Stochastic Gradient Descent so as to perform document classification.
+ *
+ * For each document the list of labels are extracted the integer indexes of the
+ * document categories if the belong to the list of categories given as input.
+ *
+ * The features are extracted from the tokenized content of each wiki articled
+ * deterministically mapped to a fixed dimensional array of occurrence and
+ * coocurrence of terms counts through a random function (a.k.a TermRandomizer).
  */
 public final class WikipediaDatasetCreatorDriver extends Configured implements
     Tool {
@@ -131,7 +139,7 @@ public final class WikipediaDatasetCreatorDriver extends Configured implements
    * @param output
    *          the output pathname String
    * @param catFile
-   *          the file containing the Wikipedia categories
+   *          the file containing the Wikipedia categories, one entry per line
    */
   public static void runJob(String input, String output, String catFile)
       throws IOException {
