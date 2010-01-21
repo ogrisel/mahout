@@ -95,7 +95,7 @@ public class WikipediaRandomHasherMapper extends MapReduceBase implements
     // load the list of category labels to look for
     inputCategories.clear();
     String categoriesParamValue = job.get("wikipedia.categories", "");
-    for (String category : Arrays.asList(categoriesParamValue.split(","))) {
+    for (String category : categoriesParamValue.split(",")) {
       inputCategories.add(category.toLowerCase().trim());
     }
     exactMatch = job.getBoolean("wikipedia.categories.exactMatch", false);
