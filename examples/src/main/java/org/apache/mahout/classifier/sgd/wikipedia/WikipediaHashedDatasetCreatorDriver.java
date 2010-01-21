@@ -19,8 +19,8 @@ package org.apache.mahout.classifier.sgd.wikipedia;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.ArrayList;
+import java.util.List;
 
 import org.apache.commons.cli2.CommandLine;
 import org.apache.commons.cli2.Group;
@@ -143,7 +143,8 @@ public final class WikipediaHashedDatasetCreatorDriver extends Configured
    */
   public void runJob(String input, String output, String catFile)
       throws IOException {
-    JobConf job = new JobConf(getConf(), WikipediaHashedDatasetCreatorDriver.class);
+    JobConf job = new JobConf(getConf(),
+        WikipediaHashedDatasetCreatorDriver.class);
     if (log.isInfoEnabled()) {
       log.info("Input: " + input + " Out: " + output + " Categories: "
           + catFile);
@@ -168,7 +169,7 @@ public final class WikipediaHashedDatasetCreatorDriver extends Configured
       dfs.delete(outPath, true);
     }
 
-    Set<String> categories = new HashSet<String>();
+    List<String> categories = new ArrayList<String>();
     for (String line : new FileLineIterable(new File(catFile))) {
       categories.add(line.trim().toLowerCase());
     }
