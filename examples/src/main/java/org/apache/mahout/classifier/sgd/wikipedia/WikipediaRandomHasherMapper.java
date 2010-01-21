@@ -145,6 +145,14 @@ public class WikipediaRandomHasherMapper extends MapReduceBase implements
     }
     totalOutputCount++;
 
+    // extract the title of the article as instance name
+    Matcher titleMatcher = TITLE_TAG_PATTERN.matcher(value.toString());
+    if (!titleMatcher.find()) {
+      reporter.incrCounter(SKIPED_ARTICLES.MISSING_TITLE, 1);
+      return;
+    }
+    String name = titleMatcher.group(1);
+
     // strip the wikimarkup and hash the terms using the randomizer
     TokenStream stream = new WikipediaTokenizer(new StringReader(rawMarkup));
     List<String> allTerms = new ArrayList<String>();
@@ -157,16 +165,9 @@ public class WikipediaRandomHasherMapper extends MapReduceBase implements
     // avoid all those wasted string allocations (or prove they are harmless
     // using the profiler).
     Vector vector = randomizer.randomizedInstance(allTerms, window, allPairs);
-
-    Matcher titleMatcher = TITLE_TAG_PATTERN.matcher(value.toString());
-    if (!titleMatcher.find()) {
-      reporter.incrCounter(SKIPED_ARTICLES.MISSING_TITLE, 1);
-      return;
-    }
-    String name = titleMatcher.group(1);
     vector.setName(name);
     labeledVectorValue.set(vector);
-    if (totalOutputCount % 100 == 0) {
+    if (totalOutputCount % 10 == 0) {
       reporter.setStatus(String.format(
           "Extracted %d instances so far, latest is: '%s' with categories: %s",
           totalOutputCount, name, Arrays.toString(categories)));
