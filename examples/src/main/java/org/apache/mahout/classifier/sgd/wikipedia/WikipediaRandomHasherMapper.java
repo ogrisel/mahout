@@ -55,6 +55,10 @@ import org.apache.mahout.math.Vector;
 public class WikipediaRandomHasherMapper extends MapReduceBase implements
     Mapper<LongWritable,Text,LongWritable,MultiLabelVectorWritable> {
 
+  public static enum SKIPED_ARTICLES {
+    WITHOUT_CATEGORIES, MISSING_MARKUP, MISSING_TITLE, REDIRECT
+  };
+
   private static final Pattern TEXT_TAG_PATTERN = Pattern.compile(
       "<text xml:space=\"preserve\">(.*)?</text>", Pattern.MULTILINE
           | Pattern.DOTALL);
@@ -115,10 +119,13 @@ public class WikipediaRandomHasherMapper extends MapReduceBase implements
 
     // extract the raw markup from the XML dump slice
     Matcher textMatcher = TEXT_TAG_PATTERN.matcher(value.toString());
-    textMatcher.find();
+    if (!textMatcher.find()) {
+      reporter.incrCounter(SKIPED_ARTICLES.MISSING_MARKUP, 1);
+    }
     String rawMarkup = StringEscapeUtils.unescapeHtml(textMatcher.group(1))
         .trim();
     if (rawMarkup.startsWith(REDIRECT_PREFIX)) {
+      reporter.incrCounter(SKIPED_ARTICLES.REDIRECT, 1);
       return;
     }
 
@@ -130,6 +137,7 @@ public class WikipediaRandomHasherMapper extends MapReduceBase implements
     if (categories.length == 0) {
       if (totalOutputCount != 0
           && ((double) unlabeledOuputCount) / totalOutputCount > maxUnlabeledInstanceRate) {
+        reporter.incrCounter(SKIPED_ARTICLES.WITHOUT_CATEGORIES, 1);
         return;
       }
       unlabeledOuputCount++;
@@ -150,7 +158,9 @@ public class WikipediaRandomHasherMapper extends MapReduceBase implements
     Vector vector = randomizer.randomizedInstance(allTerms, window, allPairs);
 
     Matcher titleMatcher = TITLE_TAG_PATTERN.matcher(value.toString());
-    titleMatcher.find();
+    if (!titleMatcher.find()) {
+      reporter.incrCounter(SKIPED_ARTICLES.MISSING_TITLE, 1);
+    }
     String name = titleMatcher.group(1);
     vector.setName(name);
     labeledVectorValue.set(vector);
