@@ -19,13 +19,15 @@ public class TPrior extends PriorFunction {
   @Override
   public double age(double oldValue, double generations, double learningRate) {
     for (int i = 0; i < generations; i++) {
-      oldValue = oldValue - learningRate * oldValue * (df + 1) / (df + oldValue * oldValue);
+      oldValue = oldValue - learningRate * oldValue * (df + 1)
+          / (df + oldValue * oldValue);
     }
     return oldValue;
   }
 
   @Override
   public double logP(double beta_ij) {
-    return logGamma((df + 1) / 2) - log(df * Math.PI) - logGamma(df / 2) - (df + 1) / 2 * log(1 + beta_ij * beta_ij);
+    return logGamma((df + 1) / 2) - log(df * Math.PI) - logGamma(df / 2)
+        - (df + 1) / 2 * log(1 + beta_ij * beta_ij);
   }
 }
