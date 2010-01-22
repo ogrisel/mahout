@@ -58,9 +58,9 @@ import org.slf4j.LoggerFactory;
  * For each document the list of labels are extracted the integer indexes of the
  * document categories if the belong to the list of categories given as input.
  *
- * The features are extracted from the tokenized content of each wiki articled
- * deterministically mapped to a fixed dimensional array of occurrence and
- * coocurrence of terms counts through a random function (a.k.a TermRandomizer).
+ * The features are extracted from the tokenized content of each wiki article
+ * deterministically mapped to a fixed dimension array of occurrence and
+ * co-occurrence of terms counts through a random function (a.k.a TermRandomizer).
  */
 public final class WikipediaHashedDatasetCreatorDriver extends Configured
     implements Tool {
