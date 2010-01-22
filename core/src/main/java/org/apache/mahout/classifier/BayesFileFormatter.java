@@ -39,9 +39,10 @@ import org.apache.commons.cli2.builder.DefaultOptionBuilder;
 import org.apache.commons.cli2.builder.GroupBuilder;
 import org.apache.commons.cli2.commandline.Parser;
 import org.apache.lucene.analysis.Analyzer;
-import org.apache.lucene.analysis.Token;
 import org.apache.lucene.analysis.TokenStream;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
+import org.apache.lucene.analysis.tokenattributes.TermAttribute;
+import org.apache.lucene.util.Version;
 import org.apache.mahout.common.IOUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -54,11 +55,8 @@ import org.slf4j.LoggerFactory;
  */
 public final class BayesFileFormatter {
   
-  private static final Logger log = LoggerFactory
-      .getLogger(BayesFileFormatter.class);
-  
-  private static final String LINE_SEP = System.getProperty("line.separator");
-  
+  private static final Logger log = LoggerFactory.getLogger(BayesFileFormatter.class);
+
   private BayesFileFormatter() { }
   
   /**
@@ -178,7 +176,7 @@ public final class BayesFileFormatter {
           writeFile(label, analyzer, file, charset, theWriter);
           if (writer != null) {
             // just write a new line
-            theWriter.write(LINE_SEP);
+            theWriter.write('\n');
           }
         } catch (IOException e) {
           // TODO: report failed files instead of throwing exception
@@ -219,10 +217,10 @@ public final class BayesFileFormatter {
       writer.write(label);
       writer.write('\t'); // edit: Inorder to match Hadoop standard
       // TextInputFormat
-      Token token = new Token();
-      while ((token = ts.next(token)) != null) {
-        char[] termBuffer = token.termBuffer();
-        int termLen = token.termLength();
+      TermAttribute termAtt = (TermAttribute) ts.addAttribute(TermAttribute.class);
+      while (ts.incrementToken()) {
+        char[] termBuffer = termAtt.termBuffer();
+        int termLen = termAtt.termLength();
         writer.write(termBuffer, 0, termLen);
         writer.write(' ');
       }
@@ -244,11 +242,11 @@ public final class BayesFileFormatter {
                                           Reader reader) throws IOException {
     TokenStream ts = analyzer.tokenStream("", reader);
     
-    Token token;
     List<String> coll = new ArrayList<String>();
-    while ((token = ts.next()) != null) {
-      char[] termBuffer = token.termBuffer();
-      int termLen = token.termLength();
+    TermAttribute termAtt = (TermAttribute) ts.addAttribute(TermAttribute.class);
+    while (ts.incrementToken()) {
+      char[] termBuffer = termAtt.termBuffer();
+      int termLen = termAtt.termLength();
       String val = new String(termBuffer, 0, termLen);
       coll.add(val);
     }
@@ -334,7 +332,7 @@ public final class BayesFileFormatter {
         analyzer = Class.forName((String) cmdLine.getValue(analyzerOpt))
             .asSubclass(Analyzer.class).newInstance();
       } else {
-        analyzer = new StandardAnalyzer();
+        analyzer = new StandardAnalyzer(Version.LUCENE_CURRENT);
       }
       Charset charset = Charset.forName("UTF-8");
       if (cmdLine.hasOption(charsetOpt)) {

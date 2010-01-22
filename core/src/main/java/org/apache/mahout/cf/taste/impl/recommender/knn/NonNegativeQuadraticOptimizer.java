@@ -25,6 +25,11 @@ import java.util.Arrays;
  */
 public final class NonNegativeQuadraticOptimizer implements Optimizer {
 
+  private static final double EPSILON = 1.0e-10;
+  private static final double CONVERGENCE_LIMIT = 0.1;
+  private static final int MAX_ITERATIONS = 1000;
+  private static final double DEFAULT_STEP = 0.001;
+
   /**
    * Non-negative Quadratic Optimization.
    *
@@ -39,10 +44,9 @@ public final class NonNegativeQuadraticOptimizer implements Optimizer {
     double[] x = new double[k];
     Arrays.fill(x, 3.0 / (double) k);
 
-    double rdot;
-    do {
+    for (int iteration = 0; iteration < MAX_ITERATIONS; iteration++) {
 
-      rdot = 0.0;
+      double rdot = 0.0;
       for (int n = 0; n < k; n++) {
         double sumAw = 0.0;
         double[] An = A[n];
@@ -50,16 +54,21 @@ public final class NonNegativeQuadraticOptimizer implements Optimizer {
           sumAw += An[i] * x[i];
         }
         // r = b - Ax; // the residual, or 'steepest gradient'
-        r[n] = b[n] - sumAw;
+        double rn = b[n] - sumAw;
 
         // find active variables - those that are pinned due to
         // nonnegativity constraints; set respective ri's to zero
-        if ((x[n] < 1.0e-10) && (r[n] < 0.0)) {
-          r[n] = 0.0;
+        if ((x[n] < EPSILON) && (rn < 0.0)) {
+          rn = 0.0;
+        } else {
+          // max step size numerator
+          rdot += rn * rn;
         }
+        r[n] = rn;
+      }
 
-        // max step size numerator
-        rdot += r[n] * r[n];
+      if (rdot <= CONVERGENCE_LIMIT) {
+        break;
       }
 
       // max step size denominator
@@ -77,30 +86,27 @@ public final class NonNegativeQuadraticOptimizer implements Optimizer {
       double stepSize = rdot / rArdotSum;
 
       if (Double.isNaN(stepSize)) {
-        stepSize = 0.001;
+        stepSize = DEFAULT_STEP;
       }
 
       // adjust step size to prevent negative values
       for (int n = 0; n < k; n++) {
         if (r[n] < 0.0) {
-          stepSize = Math.min(Math.abs(stepSize), Math.abs(x[n] / r[n])) * stepSize / Math.abs(stepSize);
+          double absStepSize = stepSize < 0.0 ? -stepSize : stepSize;
+          stepSize = Math.min(absStepSize, Math.abs(x[n] / r[n])) * stepSize / absStepSize;
         }
       }
 
       // update x values
       for (int n = 0; n < k; n++) {
         x[n] += stepSize * r[n];
-        if (x[n] < 1.0e-10) {
+        if (x[n] < EPSILON) {
           x[n] = 0.0;
         }
       }
 
-      /*
-      if (rdot > (20 * k) || Double.isNaN(rdot) || (iteration > 5000)) {
-        //TODO: do something in case of divergence
-      }
-       */
-    } while (rdot > 0.1);
+      //TODO: do something in case of divergence
+    }
 
     return x;
   }

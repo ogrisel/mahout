@@ -37,7 +37,11 @@ public class DenseVector extends AbstractVector {
 
   /** Construct a new instance using provided values */
   public DenseVector(double[] values) {
-    this.values = values.clone();
+    this(values, false);
+  }
+
+  public DenseVector(double[] values, boolean shallowCopy) {
+    this.values = shallowCopy ? values : values.clone();
   }
 
   public DenseVector(String name, double[] values) {
@@ -63,9 +67,8 @@ public class DenseVector extends AbstractVector {
     super(vector.getName());
     values = new double[vector.size()];
     Iterator<Vector.Element> it = vector.iterateNonZero();
-    Vector.Element e = null;
     while(it.hasNext()) {
-      e = it.next();
+      Vector.Element e = it.next();
       values[e.index()] = e.get();
     }
   }
@@ -101,7 +104,7 @@ public class DenseVector extends AbstractVector {
 
   @Override
   public Vector like(int cardinality) {
-    DenseVector denseVector = new DenseVector(cardinality);
+    Vector denseVector = new DenseVector(cardinality);
     denseVector.setLabelBindings(getLabelBindings());
     return denseVector;
   }
@@ -110,6 +113,26 @@ public class DenseVector extends AbstractVector {
   public void setQuick(int index, double value) {
     lengthSquared = -1.0;
     values[index] = value;
+  }
+
+  @Override
+  public Vector assign(Vector other, BinaryFunction function) {
+    if (other.size() != size()) {
+      throw new CardinalityException();
+    }
+    // is there some other way to know if function.apply(0, x) = x for all x?
+    if(function instanceof PlusFunction || function instanceof PlusWithScaleFunction) {
+      Iterator<Vector.Element> it = other.iterateNonZero();
+      Vector.Element e;
+      while(it.hasNext() && (e = it.next()) != null) {
+        values[e.index()] = function.apply(values[e.index()], e.get());
+      }
+    } else {
+      for (int i = 0; i < size(); i++) {
+        values[i] = function.apply(values[i], other.getQuick(i));
+      }
+    }
+    return this;
   }
 
   @Override
