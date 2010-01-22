@@ -35,6 +35,7 @@ import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.FSDirectory;
 import org.apache.mahout.math.RandomAccessSparseVector;
 import org.apache.mahout.common.CommandLineUtil;
+import org.apache.mahout.math.VectorWritable;
 import org.apache.mahout.utils.vectors.TF;
 import org.apache.mahout.utils.vectors.TFIDF;
 import org.apache.mahout.utils.vectors.TermInfo;
@@ -182,7 +183,7 @@ public class Driver {
             iterable = new LuceneIterable(reader, idField, field, mapper, norm);
           }
           String outFile = cmdLine.getValue(outputOpt).toString();
-          log.info("Output File: " + outFile);
+          log.info("Output File: {}", outFile);
 
           VectorWriter vectorWriter;
           if (cmdLine.hasOption(outWriterOpt)) {
@@ -199,11 +200,11 @@ public class Driver {
 
           long numDocs = vectorWriter.write(iterable, maxDocs);
           vectorWriter.close();
-          log.info("Wrote: " + numDocs + " vectors");
+          log.info("Wrote: {} vectors", numDocs);
 
           String delimiter = cmdLine.hasOption(delimiterOpt) ? cmdLine.getValue(delimiterOpt).toString() : "\t";
           File dictOutFile = new File(cmdLine.getValue(dictOutOpt).toString());
-          log.info("Dictionary Output file: " + dictOutFile);
+          log.info("Dictionary Output file: {}", dictOutFile);
           BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(dictOutFile), Charset.forName("UTF8")));
           JWriterTermInfoWriter tiWriter = new JWriterTermInfoWriter(writer, delimiter, field);
           tiWriter.write(termInfo);
@@ -223,7 +224,7 @@ public class Driver {
     Configuration conf = new Configuration();
     FileSystem fs = FileSystem.get(conf);
     //TODO: Make this parameter driven
-    SequenceFile.Writer seqWriter = SequenceFile.createWriter(fs, conf, path, LongWritable.class, RandomAccessSparseVector.class);
+    SequenceFile.Writer seqWriter = SequenceFile.createWriter(fs, conf, path, LongWritable.class, VectorWritable.class);
 
     return new SequenceFileVectorWriter(seqWriter);
   }
