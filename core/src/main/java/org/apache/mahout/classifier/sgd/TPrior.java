@@ -5,9 +5,12 @@ import static org.apache.commons.math.special.Gamma.logGamma;
 
 /**
  * Provides a t-distribution as a prior.
+ *
+ * TODO: give expected benefits of using this prior as a regularizer vs Gaussian
+ * (L2) or Laplacian (L1).
  */
 public class TPrior extends PriorFunction {
-  private double df;
+  private final double df;
 
   public TPrior(double df) {
     this.df = df;
