@@ -169,8 +169,10 @@ public class WikipediaRandomHasherMapper extends MapReduceBase implements
     labeledVectorValue.set(vector);
     if (totalOutputCount % 10 == 0) {
       reporter.setStatus(String.format(
-          "Extracted %d instances so far, latest is: '%s' with categories: %s",
-          totalOutputCount, name, Arrays.toString(categories)));
+          "Extracted %d instances. Last: '%s' with categories: %s,"
+              + " %d/%d non null components", totalOutputCount, name, Arrays
+              .toString(categories), vector.getNumNondefaultElements(), vector
+              .size()));
     }
     collector.collect(shufflingKey, labeledVectorValue);
   }
