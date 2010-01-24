@@ -24,7 +24,6 @@ import java.util.Iterator;
 
 import org.apache.hadoop.io.Writable;
 
-
 public class SequentialAccessSparseVectorWritable extends SequentialAccessSparseVector implements Writable {
 
   public SequentialAccessSparseVectorWritable(SequentialAccessSparseVector vector) {
@@ -45,7 +44,7 @@ public class SequentialAccessSparseVectorWritable extends SequentialAccessSparse
     Iterator<Element> iter = iterateNonZero();
     int count = 0;
     while (iter.hasNext()) {
-      Vector.Element element = iter.next();
+      Element element = iter.next();
       dataOutput.writeInt(element.index());
       dataOutput.writeDouble(element.get());
       count++;
