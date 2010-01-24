@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.io.StringReader;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -30,7 +31,7 @@ import org.apache.mahout.math.Vector;
 public class ThresholdClassifier {
 
   private final OnlineLogisticRegression model;
-  private final List<String> categories;
+  private final List<String> allCategories;
   private Analyzer analyzer = new WhitespaceAnalyzer();
   private boolean allPairs = false;
   private int window = 2;
@@ -59,7 +60,7 @@ public class ThresholdClassifier {
         categories.add(String.format("Category #", i));
       }
     }
-    this.categories = categories;
+    this.allCategories = categories;
     int numCategories = categories.size();
     if (numCategories != numCategoriesAcceptedByModel) {
       throw new IllegalArgumentException(String.format(
@@ -82,6 +83,40 @@ public class ThresholdClassifier {
   }
 
   /**
+   * High level train method to work with category names directly. When training
+   * on real dataset it is better to directly use the OnlineLogisticRegression
+   * API directly to avoid overhead.
+   *
+   * @param document
+   *          the string content of the labeled document
+   * @param expectedCategories
+   *          the category names of the document
+   */
+  public void train(String document, Collection<String> categories) {
+    Vector instance = model.getRandomizer().randomizedInstance(
+        extractTerms(document), window, allPairs);
+    if (categories.isEmpty()) {
+      // use special category index 0 for purely negative examples
+      model.train(0, instance);
+    } else {
+      for (String c : categories) {
+        model.train(allCategories.indexOf(c) + 1, instance);
+      }
+    }
+  }
+
+  public void train(Vector instance, int[] labels) {
+    if (labels.length == 0) {
+      // use special category index 0 for purely negative examples
+      model.train(0, instance);
+    } else {
+      for (int label : labels) {
+        model.train(label + 1, instance);
+      }
+    }
+  }
+
+  /**
    * Multi-label classification of document.
    *
    * @param document
@@ -89,7 +124,19 @@ public class ThresholdClassifier {
    * @return the possibly empty list of matching category names
    */
   public Set<String> classify(String document) {
-    TokenStream stream = analyzer.tokenStream("", new StringReader(document));
+    Vector probabilities = model.classify(extractTerms(document), window,
+        allPairs);
+    Set<String> documentCategories = new LinkedHashSet<String>();
+    for (int i = 0; i < allCategories.size(); i++) {
+      if (probabilities.get(i) > thresholds[i]) {
+        documentCategories.add(allCategories.get(i));
+      }
+    }
+    return documentCategories;
+  }
+
+  private List<String> extractTerms(String document) {
+    TokenStream stream = analyzer.tokenStream(null, new StringReader(document));
     TermAttribute termAtt = (TermAttribute) stream
         .addAttribute(TermAttribute.class);
     List<String> terms = new ArrayList<String>();
@@ -101,18 +148,11 @@ public class ThresholdClassifier {
       // will never be raised by a StringReader
       throw new IllegalStateException(e);
     }
-    Vector probabilities = model.classify(terms, window, allPairs);
-    Set<String> documentCategories = new LinkedHashSet<String>();
-    for (int i = 0; i < categories.size(); i++) {
-      if (probabilities.get(i + 1) > thresholds[i]) {
-        documentCategories.add(categories.get(i));
-      }
-    }
-    return documentCategories;
+    return terms;
   }
 
   public MultiLabelScores getCurrentEvaluation() {
-    return new MultiLabelScores(categories, truePositiveCount,
+    return new MultiLabelScores(allCategories, truePositiveCount,
         falsePositiveCount, falseNegativeCount);
   }
 
@@ -154,7 +194,7 @@ public class ThresholdClassifier {
   public void evaluate(String document, Set<String> expectedLabels) {
     Set<String> actualLabels = classify(document);
     int i = 0;
-    for (String category : categories) {
+    for (String category : allCategories) {
       if (actualLabels.contains(category)) {
         if (expectedLabels.contains(category)) {
           truePositiveCount[i] += 1;
@@ -212,7 +252,7 @@ public class ThresholdClassifier {
   }
 
   public List<String> getCategories() {
-    return categories;
+    return allCategories;
   }
 
   public void setAnalyzer(Analyzer analyzer) {
