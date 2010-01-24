@@ -151,6 +151,12 @@ public class ThresholdClassifier {
     return terms;
   }
 
+  /**
+   * Compute the scores (precision, recall, f1 measure) based on the current
+   * count values of true positive, false positive and false negative
+   * accumulated by previous call to @see #evaluate(Vector, int[]) or @see
+   * #evaluate(String, Set).
+   */
   public MultiLabelScores getCurrentEvaluation() {
     return new MultiLabelScores(allCategories, truePositiveCount,
         falsePositiveCount, falseNegativeCount);
