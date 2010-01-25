@@ -279,8 +279,8 @@ public final class WikipediaOnlineClassificationDriver extends Configured
 
             if (steps % updateScoreInterval == 0) {
               MultiLabelScores scores = classifier.getCurrentEvaluation();
-              log.info(String.format("At instance #%d '%s': %s", steps, vector
-                  .getName(), scores));
+              log.info(String.format("At instance #%d '%s': %s, density %s", steps, vector
+                  .getName(), scores, classifier.density()));
               log.info("Precision by categories: "
                   + ArrayUtils.toString(scores.precision));
               log.info("Recall by categories:    "

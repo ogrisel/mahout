@@ -173,8 +173,8 @@ public class WikipediaRandomHasherMapper extends MapReduceBase implements
     labeledVectorValue.set(vector);
     if (totalOutputCount % 10 == 0) {
       reporter.setStatus(String.format(
-          "Extracted %d instances. Last: '%s' with categories: %s,"
-              + " %d/%d non null components", totalOutputCount, name, Arrays
+          "Extracted %d instances. Last: '%s' with categories: %s and "
+              + "density: %d/%d", totalOutputCount, name, Arrays
               .toString(categories), vector.getNumNondefaultElements(), vector
               .size()));
     }
