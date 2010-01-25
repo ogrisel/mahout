@@ -180,13 +180,13 @@ public class OnlineLogisticRegression {
    */
   public void train(int actual, Vector instance) {
     // what does the current model say?
-    Vector v = classify(instance);
+    Vector probs = classify(instance);
 
     double learningRate = currentLearningRate();
 
     // update each row of coefficients according to result
     for (int i = 0; i < numCategories - 1; i++) {
-      double gradientBase = -v.getQuick(i);
+      double gradientBase = -probs.getQuick(i);
       if ((i + 1) == actual) {
         gradientBase += 1;
       }
@@ -194,10 +194,10 @@ public class OnlineLogisticRegression {
       // then we apply the gradientBase to the resulting element.
       Iterator<Vector.Element> nonZeros = instance.iterateNonZero();
       while (nonZeros.hasNext()) {
-        Vector.Element updateLocation = nonZeros.next();
-        int j = updateLocation.index();
+        Vector.Element element = nonZeros.next();
+        int j = element.index();
         beta.set(i, j, beta.get(i, j) + learningRate * gradientBase
-            * instance.get(j));
+            * element.get());
       }
     }
 
