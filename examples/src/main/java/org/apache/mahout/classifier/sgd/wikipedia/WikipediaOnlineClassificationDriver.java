@@ -31,6 +31,7 @@ import org.apache.commons.cli2.builder.ArgumentBuilder;
 import org.apache.commons.cli2.builder.DefaultOptionBuilder;
 import org.apache.commons.cli2.builder.GroupBuilder;
 import org.apache.commons.cli2.commandline.Parser;
+import org.apache.commons.lang.ArrayUtils;
 import org.apache.commons.lang.StringUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.conf.Configured;
@@ -51,6 +52,7 @@ import org.apache.hadoop.util.ReflectionUtils;
 import org.apache.hadoop.util.Tool;
 import org.apache.hadoop.util.ToolRunner;
 import org.apache.mahout.classifier.bayes.XmlInputFormat;
+import org.apache.mahout.classifier.sgd.MultiLabelScores;
 import org.apache.mahout.classifier.sgd.ThresholdClassifier;
 import org.apache.mahout.common.CommandLineUtil;
 import org.apache.mahout.common.FileLineIterable;
@@ -150,6 +152,8 @@ public final class WikipediaOnlineClassificationDriver extends Configured
       }
       String featuresPath = (String) cmdLine.getValue(featuresPathOpt);
       String catFile = (String) cmdLine.getValue(categoriesOpt);
+      List<String> categories = readCategories(catFile);
+      getConf().set("wikipedia.categories", StringUtils.join(categories, ','));
 
       if (cmdLine.hasOption(extractFeaturesOpt)) {
         String xmlDumpPath = (String) cmdLine.getValue(xmlDumpPathOpt);
@@ -163,7 +167,7 @@ public final class WikipediaOnlineClassificationDriver extends Configured
       if (cmdLine.hasOption(trainModelOpt)) {
         String modelPath = (String) cmdLine.getValue(modelPathOpt);
         if (modelPath == null) {
-          modelPath = String.format("model-%1$tF-%1$tR.dat", Calendar
+          modelPath = String.format("model-%1$tF--%1$tH-%1$tM.dat", Calendar
               .getInstance());
         }
         trainModel(featuresPath, modelPath);
@@ -213,9 +217,6 @@ public final class WikipediaOnlineClassificationDriver extends Configured
     if (dfs.exists(outPath)) {
       dfs.delete(outPath, true);
     }
-
-    List<String> categories = readCategories(catFile);
-    job.set("wikipedia.categories", StringUtils.join(categories, ','));
     JobClient.runJob(job);
   }
 
@@ -227,7 +228,7 @@ public final class WikipediaOnlineClassificationDriver extends Configured
     return categories;
   }
 
-  public void trainModel(String featuresPath, String modelPath)
+  public void trainModel(String featuresPathStr, String modelPathStr)
       throws ClassNotFoundException, InstantiationException,
       IllegalAccessException, IOException {
     Configuration conf = getConf();
@@ -236,18 +237,28 @@ public final class WikipediaOnlineClassificationDriver extends Configured
     int epochs = conf.getInt("online.epochs", 1);
     int epoch = 0;
     long steps = 0;
+    final FileSystem modelFs = FileSystem.get(URI.create(modelPathStr), conf);
+    Path modelPath = new Path(modelPathStr);
+    if (modelFs.exists(modelPath)) {
+      throw new IOException(modelPath.getName() + " already exists");
+    }
 
     // read the extracted feature
-    final FileSystem fs = FileSystem.get(URI.create(featuresPath), conf);
-    Path path = new Path(featuresPath);
+    final FileSystem featuresFs = FileSystem.get(URI.create(featuresPathStr),
+        conf);
+
+    Path path = new Path(featuresPathStr);
     while (epoch < epochs) {
-      for (FileStatus fileStatus : fs.listStatus(path)) {
+      for (FileStatus fileStatus : featuresFs.listStatus(path)) {
         if (fileStatus.isDir()) {
           continue;
         }
+        log.info(String.format("Training with file: '%s':", fileStatus
+            .getPath()));
         SequenceFile.Reader reader = null;
         try {
-          reader = new SequenceFile.Reader(fs, fileStatus.getPath(), conf);
+          reader = new SequenceFile.Reader(featuresFs, fileStatus.getPath(),
+              conf);
           Writable key = (Writable) ReflectionUtils.newInstance(reader
               .getKeyClass(), conf);
           Writable value = (Writable) ReflectionUtils.newInstance(reader
@@ -267,8 +278,15 @@ public final class WikipediaOnlineClassificationDriver extends Configured
             classifier.train(vector, labels);
 
             if (steps % updateScoreInterval == 0) {
+              MultiLabelScores scores = classifier.getCurrentEvaluation();
               log.info(String.format("At instance #%d '%s': %s", steps, vector
-                  .getName(), classifier.getCurrentEvaluation()));
+                  .getName(), scores));
+              log.info("Precision by categories: "
+                  + ArrayUtils.toString(scores.precision));
+              log.info("Recall by categories:    "
+                  + ArrayUtils.toString(scores.recall));
+              log.info("F1 score by categories:  "
+                  + ArrayUtils.toString(scores.f1Score));
               classifier.resetEvaluation();
             }
             steps++;
@@ -280,6 +298,7 @@ public final class WikipediaOnlineClassificationDriver extends Configured
       }
       epoch++;
     }
+    log.info(String.format("Saving trained model to '%s'", modelPathStr));
     // TODO: save the result
   }
 }
