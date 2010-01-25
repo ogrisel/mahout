@@ -59,6 +59,15 @@ public class SequentialAccessSparseVector extends AbstractVector {
     }
   }
 
+  public SequentialAccessSparseVector(RandomAccessSparseVector other) {
+      this(other.getName(), other.size(), other.getNumNondefaultElements());
+      Iterator<Element> it = other.sortAndIterateNonZero();
+      Element e;
+      while(it.hasNext() && (e = it.next()) != null) {
+        set(e.index(), e.get());
+      }
+    }
+
   public SequentialAccessSparseVector(SequentialAccessSparseVector other) {
     this(other.getName(), other.size(), other.getNumNondefaultElements());
     values = other.values.clone();

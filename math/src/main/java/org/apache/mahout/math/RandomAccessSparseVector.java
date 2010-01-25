@@ -133,7 +133,11 @@ public class RandomAccessSparseVector extends AbstractVector {
   public java.util.Iterator<Vector.Element> iterateNonZero() {
     return new NonZeroIterator(false);
   }
-  
+
+  public java.util.Iterator<Vector.Element> sortAndIterateNonZero() {
+      return new NonZeroIterator(true);
+  }
+
   @Override
   public Iterator<Vector.Element> iterateAll() {
     return new AllIterator();
@@ -203,11 +207,11 @@ public class RandomAccessSparseVector extends AbstractVector {
     private final Element element = new Element(0);
 
     private final IntArrayList intArrList =  values.keys();
-    
+
     private NonZeroIterator(boolean sorted) {
       if (sorted) {
         intArrList.sort();
-      }      
+      }
     }
 
     @Override

@@ -46,6 +46,7 @@ import org.apache.mahout.classifier.sgd.TermRandomizer;
 import org.apache.mahout.classifier.sgd.ThresholdClassifier;
 import org.apache.mahout.common.RandomUtils;
 import org.apache.mahout.math.MultiLabelVectorWritable;
+import org.apache.mahout.math.SequentialAccessSparseVector;
 import org.apache.mahout.math.Vector;
 
 /**
@@ -170,7 +171,7 @@ public class WikipediaRandomHasherMapper extends MapReduceBase implements
     // using the profiler).
     Vector vector = randomizer.randomizedInstance(allTerms, window, allPairs);
     vector.setName(name);
-    labeledVectorValue.set(vector);
+    labeledVectorValue.set(new SequentialAccessSparseVector(vector));
     if (totalOutputCount % 10 == 0) {
       reporter.setStatus(String.format(
           "Extracted %d instances. Last: '%s' with categories: %s and "
