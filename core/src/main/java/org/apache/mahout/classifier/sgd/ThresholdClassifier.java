@@ -58,6 +58,7 @@ public class ThresholdClassifier {
   public static final int DEFAULT_NUM_FEATURES = 131072; // 2 ** 17
   public static final int DEFAULT_NUM_PROBES = 2;
   public static final boolean DEFAULT_ALL_PAIRS = false;
+  private static final float DEFAULT_ALPHA = 1.0f - 1e-5f;
 
   private final OnlineLogisticRegression model;
   private final List<String> allCategories;
@@ -330,6 +331,7 @@ public class ThresholdClassifier {
     double lambda = conf.getFloat("online.lambda", DEFAULT_LAMBDA);
     double learningRate = conf.getFloat("online.learningRate",
         DEFAULT_LEARNING_RATE);
+    double alpha = conf.getFloat("online.alpha", DEFAULT_ALPHA);
 
     Class<? extends PriorFunction> prior = Class.forName(
         conf.get("online.priorClass", "org.apache.mahout.classifier.sgd.L1"))
@@ -343,7 +345,7 @@ public class ThresholdClassifier {
 
     OnlineLogisticRegression model = new OnlineLogisticRegression(categories
         .size() + 1, numFeatures, prior.newInstance(), rng).lambda(lambda)
-        .learningRate(learningRate);
+        .learningRate(learningRate).alpha(alpha);
     model.setRandomizer(randomizer);
     ThresholdClassifier classifier = new ThresholdClassifier(model, categories,
         thresholds);
