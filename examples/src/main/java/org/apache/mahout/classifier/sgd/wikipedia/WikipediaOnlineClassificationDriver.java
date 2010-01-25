@@ -34,6 +34,7 @@ import org.apache.commons.cli2.commandline.Parser;
 import org.apache.commons.lang.StringUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.conf.Configured;
+import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.IOUtils;
@@ -237,39 +238,48 @@ public final class WikipediaOnlineClassificationDriver extends Configured
     long steps = 0;
 
     // read the extracted feature
-    FileSystem fs = FileSystem.get(URI.create(featuresPath), conf);
+    final FileSystem fs = FileSystem.get(URI.create(featuresPath), conf);
     Path path = new Path(featuresPath);
-    SequenceFile.Reader reader = null;
-    try {
-      while (epoch < epochs) {
-        reader = new SequenceFile.Reader(fs, path, conf);
-        Writable key = (Writable) ReflectionUtils.newInstance(reader
-            .getKeyClass(), conf);
-        MultiLabelVectorWritable instance = (MultiLabelVectorWritable) ReflectionUtils
-            .newInstance(reader.getValueClass(), conf);
-        while (reader.next(key, instance)) {
-          Vector vector = instance.get();
-          int[] labels = instance.getLabels();
-
-          // Progressive Validation
-          classifier.evaluate(vector, labels);
-          classifier.train(vector, labels);
-
-          if (steps % updateScoreInterval == 0) {
-            log.info(String.format("At instance #%d '%s': %s", steps, vector
-                .getName(), classifier.getCurrentEvaluation()));
-            classifier.resetEvaluation();
-          }
-          steps++;
+    while (epoch < epochs) {
+      for (FileStatus fileStatus : fs.listStatus(path)) {
+        if (fileStatus.isDir()) {
+          continue;
         }
-        log.info(String.format("Completed epoch %d/%d", epoch + 1, epochs));
-        epoch++;
-      }
-    } finally {
-      IOUtils.closeStream(reader);
-    }
+        SequenceFile.Reader reader = null;
+        try {
+          reader = new SequenceFile.Reader(fs, fileStatus.getPath(), conf);
+          Writable key = (Writable) ReflectionUtils.newInstance(reader
+              .getKeyClass(), conf);
+          Writable value = (Writable) ReflectionUtils.newInstance(reader
+              .getValueClass(), conf);
+          while (reader.next(key, value)) {
+            if (!(value instanceof MultiLabelVectorWritable)) {
+              log.warn(String.format("ignoring file: '%s'", fileStatus
+                  .getPath()));
+              break;
+            }
+            MultiLabelVectorWritable instance = (MultiLabelVectorWritable) value;
+            Vector vector = instance.get();
+            int[] labels = instance.getLabels();
 
+            // Progressive Validation
+            classifier.evaluate(vector, labels);
+            classifier.train(vector, labels);
+
+            if (steps % updateScoreInterval == 0) {
+              log.info(String.format("At instance #%d '%s': %s", steps, vector
+                  .getName(), classifier.getCurrentEvaluation()));
+              classifier.resetEvaluation();
+            }
+            steps++;
+          }
+          log.info(String.format("Completed epoch %d/%d", epoch + 1, epochs));
+        } finally {
+          IOUtils.closeStream(reader);
+        }
+      }
+      epoch++;
+    }
     // TODO: save the result
   }
-
 }
