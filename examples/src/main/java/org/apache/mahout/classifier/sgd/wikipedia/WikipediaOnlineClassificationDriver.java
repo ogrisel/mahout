@@ -274,8 +274,7 @@ public final class WikipediaOnlineClassificationDriver extends Configured
             int[] labels = instance.getLabels();
 
             // Progressive Validation
-            classifier.evaluate(vector, labels);
-            classifier.train(vector, labels);
+            classifier.evaluateAndTrain(vector, labels);
 
             if (steps % updateScoreInterval == 0) {
               MultiLabelScores scores = classifier.getCurrentEvaluation();

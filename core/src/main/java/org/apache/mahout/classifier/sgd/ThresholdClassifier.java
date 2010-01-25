@@ -137,12 +137,16 @@ public class ThresholdClassifier {
   }
 
   public void train(Vector instance, int[] labels) {
+    train(instance, labels, null);
+  }
+
+  public void train(Vector instance, int[] labels, Vector probabilities) {
     if (labels.length == 0) {
       // use special category index 0 for purely negative examples
-      model.train(0, instance);
+      model.train(0, instance, probabilities);
     } else {
       for (int label : labels) {
-        model.train(label + 1, instance);
+        model.train(label + 1, instance, probabilities);
       }
     }
   }
@@ -201,8 +205,9 @@ public class ThresholdClassifier {
    *          a vectorized instance to classify
    * @param expectedLabels
    *          the expected category indices for this instance
+   * @return the vector of classification probabilities
    */
-  public void evaluate(Vector instance, int[] expectedLabels) {
+  public Vector evaluate(Vector instance, int[] expectedLabels) {
     Vector probabilities = model.classify(instance);
     for (int i = 0; i < thresholds.length; i++) {
       if (probabilities.get(i) > thresholds[i]) {
@@ -217,6 +222,22 @@ public class ThresholdClassifier {
         }
       }
     }
+    return probabilities;
+  }
+
+  /**
+   * Combine a performance measure followed by a train step so as to implement
+   * Progressive Validation with minimum computational overhead (the
+   * classification step is shared).
+   *
+   * @param instance
+   *          a vectorized instance to classify
+   * @param expectedLabels
+   *          the expected category indices for this instance
+   */
+  public void evaluateAndTrain(Vector instance, int[] expectedLabels) {
+    Vector precomputedProbabilities = evaluate(instance, expectedLabels);
+    train(instance, expectedLabels, precomputedProbabilities);
   }
 
   /**

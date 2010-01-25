@@ -179,14 +179,30 @@ public class OnlineLogisticRegression {
    *          The feature vector for the instance.
    */
   public void train(int actual, Vector instance) {
+    train(actual, instance, null);
+  }
+
+  /**
+   * Update the coefficients according to a single instance of known category.
+   *
+   * @param actual
+   *          The category of this instance.
+   * @param instance
+   *          The feature vector for the instance.
+   * @param probabilities
+   *          Pre-computed probabilities (optional)
+   */
+  public void train(int actual, Vector instance, Vector probabilities) {
     // what does the current model say?
-    Vector probs = classify(instance);
+    if (probabilities == null) {
+      probabilities = classify(instance);
+    }
 
     double learningRate = currentLearningRate();
 
     // update each row of coefficients according to result
     for (int i = 0; i < numCategories - 1; i++) {
-      double gradientBase = -probs.getQuick(i);
+      double gradientBase = -probabilities.getQuick(i);
       if ((i + 1) == actual) {
         gradientBase += 1;
       }
