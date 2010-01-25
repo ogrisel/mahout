@@ -237,7 +237,7 @@ public final class WikipediaHashedDatasetCreatorDriver extends Configured
       IllegalAccessException, IOException {
     Configuration conf = getConf();
     ThresholdClassifier classifier = buildClassifier(conf);
-    long updateScoreInterval = conf.getLong("online.updateScoreInterval", 1000);
+    long updateScoreInterval = conf.getLong("online.updateScoreInterval", 5000);
     long steps = 0;
     int epochs = conf.getInt("online.epochs", 5);
     int epoch = 0;
