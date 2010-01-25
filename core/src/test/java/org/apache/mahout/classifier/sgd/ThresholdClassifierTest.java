@@ -22,6 +22,7 @@ import static org.junit.Assert.assertEquals;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 
@@ -128,5 +129,12 @@ public class ThresholdClassifierTest {
       classifier.evaluate(documents.get(i), labels.get(i));
     }
     assertEquals(1.0, classifier.getCurrentEvaluation().meanF1Score, 0.001);
+
+    Set<String> classification = classifier
+        .classify("Stochastic gradient descent is an online learning algorithm.");
+    assertEquals(2, classification.size());
+    Iterator<String> it = classification.iterator();
+    assertEquals("machine learning", it.next());
+    assertEquals("theory", it.next());
   }
 }
