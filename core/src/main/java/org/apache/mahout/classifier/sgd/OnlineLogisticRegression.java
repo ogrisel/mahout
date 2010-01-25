@@ -176,7 +176,9 @@ public class OnlineLogisticRegression {
    * @param actual
    *          The category of this instance.
    * @param instance
-   *          The feature vector for the instance.
+   *          The feature vector for the instance. For best performances vector
+   *          implementation should feature fast sequential access of non zero
+   *          components such as SequentialAccessSparseVector
    */
   public void train(int actual, Vector instance) {
     train(actual, instance, null);
@@ -212,7 +214,7 @@ public class OnlineLogisticRegression {
       while (nonZeros.hasNext()) {
         Vector.Element element = nonZeros.next();
         int j = element.index();
-        beta.set(i, j, beta.get(i, j) + learningRate * gradientBase
+        beta.setQuick(i, j, beta.getQuick(i, j) + learningRate * gradientBase
             * element.get());
       }
     }
@@ -238,8 +240,8 @@ public class OnlineLogisticRegression {
         if (missingUpdates > 0) {
           // TODO can we put confidence weighting here or use per feature
           // annealing?
-          beta.set(i, j, prior.age(beta.get(i, j), missingUpdates, lambda
-              * learningRate));
+          beta.setQuick(i, j, prior.age(beta.getQuick(i, j), missingUpdates,
+              lambda * learningRate));
         }
       }
     }
