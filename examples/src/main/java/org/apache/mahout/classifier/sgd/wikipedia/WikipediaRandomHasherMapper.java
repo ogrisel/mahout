@@ -30,6 +30,7 @@ import java.util.regex.Pattern;
 
 import org.apache.commons.lang.ArrayUtils;
 import org.apache.commons.lang.StringEscapeUtils;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapred.JobConf;
@@ -37,11 +38,12 @@ import org.apache.hadoop.mapred.MapReduceBase;
 import org.apache.hadoop.mapred.Mapper;
 import org.apache.hadoop.mapred.OutputCollector;
 import org.apache.hadoop.mapred.Reporter;
+import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.TokenStream;
 import org.apache.lucene.analysis.tokenattributes.TermAttribute;
-import org.apache.lucene.wikipedia.analysis.WikipediaTokenizer;
-import org.apache.mahout.classifier.sgd.BinaryRandomizer;
+import org.apache.mahout.analysis.WikipediaAnalyzer;
 import org.apache.mahout.classifier.sgd.TermRandomizer;
+import org.apache.mahout.classifier.sgd.ThresholdClassifier;
 import org.apache.mahout.common.RandomUtils;
 import org.apache.mahout.math.MultiLabelVectorWritable;
 import org.apache.mahout.math.Vector;
@@ -71,7 +73,7 @@ public class WikipediaRandomHasherMapper extends MapReduceBase implements
 
   private static final String REDIRECT_PREFIX = "#REDIRECT";
 
-  private final List<String> inputCategories = new ArrayList<String>();
+  private List<String> allCategories = new ArrayList<String>();
   private double maxUnlabeledInstanceRate;
   private boolean exactMatch = false;
   private long unlabeledOuputCount = 0; // use shared counters instead?
@@ -83,6 +85,7 @@ public class WikipediaRandomHasherMapper extends MapReduceBase implements
   private int window;
   private final LongWritable shufflingKey = new LongWritable();
   private final MultiLabelVectorWritable labeledVectorValue = new MultiLabelVectorWritable();
+  private Analyzer analyzer;
 
   @Override
   public void configure(JobConf job) {
@@ -92,23 +95,23 @@ public class WikipediaRandomHasherMapper extends MapReduceBase implements
     seed = job.getInt("wikipedia.random.seed", seed);
     rng = RandomUtils.getRandom(seed);
 
-    // load the list of category labels to look for
-    inputCategories.clear();
-    String categoriesParamValue = job.get("wikipedia.categories", "");
-    for (String category : categoriesParamValue.split(",")) {
-      inputCategories.add(category.toLowerCase().trim());
+    try {
+      ThresholdClassifier classifier = ThresholdClassifier
+          .getInstance(new Configuration(job));
+      randomizer = classifier.getModel().getRandomizer();
+      allPairs = classifier.isAllPairs();
+      window = classifier.getWindow();
+      allCategories = classifier.getCategories();
+    } catch (Exception e) {
+      // the #configure(JobConf job) does not allow for properly reporting
+      // errors
+      e.printStackTrace();
     }
     exactMatch = job.getBoolean("wikipedia.categories.exactMatch", false);
 
     // reasonable default to avoid generating to many unlabeled instances
-    maxUnlabeledInstanceRate = 1.0 / inputCategories.size();
-
-    // load the randomizer that is used to hash the term of the document
-    int probes = job.getInt("randomizer.probes", 2);
-    int numFeatures = job.getInt("randomizer.numFeatures", 80000);
-    randomizer = new BinaryRandomizer(probes, numFeatures);
-    allPairs = job.getBoolean("randomizer.allPairs", false);
-    window = job.getInt("randomizer.window", 2);
+    maxUnlabeledInstanceRate = 1.0 / allCategories.size();
+    analyzer = new WikipediaAnalyzer(null);
   }
 
   @Override
@@ -154,7 +157,8 @@ public class WikipediaRandomHasherMapper extends MapReduceBase implements
     String name = titleMatcher.group(1);
 
     // strip the wikimarkup and hash the terms using the randomizer
-    TokenStream stream = new WikipediaTokenizer(new StringReader(rawMarkup));
+    TokenStream stream = analyzer
+        .tokenStream(null, new StringReader(rawMarkup));
     List<String> allTerms = new ArrayList<String>();
     TermAttribute termAtt = (TermAttribute) stream
         .addAttribute(TermAttribute.class);
@@ -183,12 +187,12 @@ public class WikipediaRandomHasherMapper extends MapReduceBase implements
     while (matcher.find()) {
       String category = matcher.group(1).toLowerCase().trim();
       if (exactMatch) {
-        if (inputCategories.contains(category)) {
-          matchingCategories.add(inputCategories.indexOf(category));
+        if (allCategories.contains(category)) {
+          matchingCategories.add(allCategories.indexOf(category));
         }
       } else {
-        for (int i = 0; i < inputCategories.size(); i++) {
-          if (category.contains(inputCategories.get(i))) {
+        for (int i = 0; i < allCategories.size(); i++) {
+          if (category.contains(allCategories.get(i))) {
             matchingCategories.add(i);
           }
         }

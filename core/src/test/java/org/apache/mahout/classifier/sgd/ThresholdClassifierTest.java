@@ -108,11 +108,11 @@ public class ThresholdClassifierTest {
       classifier.evaluate(documents.get(i), labels.get(i));
     }
     // the default precision is poor because of Annette
-    assertEquals(0.29, classifier.getCurrentEvaluation().meanPrecision, 0.01);
+    assertEquals(0.31, classifier.getCurrentEvaluation().meanPrecision, 0.01);
     // the recall is somewhat higher since the default threshold are low enough
     assertEquals(0.72, classifier.getCurrentEvaluation().meanRecall, 0.01);
     // the F1 score is low because of the poor random precision
-    assertEquals(0.40, classifier.getCurrentEvaluation().meanF1Score, 0.01);
+    assertEquals(0.41, classifier.getCurrentEvaluation().meanF1Score, 0.01);
 
     // train on dataset scanning the data several consecutive time to ensure
     // convergence

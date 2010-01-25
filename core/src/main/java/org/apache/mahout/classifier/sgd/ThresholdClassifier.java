@@ -22,15 +22,20 @@ import java.io.StringReader;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Random;
 import java.util.Set;
 
 import org.apache.commons.lang.ArrayUtils;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.TokenStream;
-import org.apache.lucene.analysis.WhitespaceAnalyzer;
+import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.analysis.tokenattributes.TermAttribute;
+import org.apache.lucene.util.Version;
+import org.apache.mahout.common.RandomUtils;
 import org.apache.mahout.math.Matrix;
 import org.apache.mahout.math.Vector;
 
@@ -47,9 +52,17 @@ import org.apache.mahout.math.Vector;
  */
 public class ThresholdClassifier {
 
+  public static final float DEFAULT_LEARNING_RATE = 0.01f;
+  public static final float DEFAULT_LAMBDA = 0.01f;
+  public static final int DEFAULT_WINDOW = 2; // bigrams
+  public static final int DEFAULT_NUM_FEATURES = 131072; // 2 ** 17
+  public static final int DEFAULT_NUM_PROBES = 2;
+  public static final boolean DEFAULT_ALL_PAIRS = false;
+
   private final OnlineLogisticRegression model;
   private final List<String> allCategories;
-  private Analyzer analyzer = new WhitespaceAnalyzer();
+  private Analyzer analyzer = new StandardAnalyzer(Version.LUCENE_CURRENT,
+      Collections.emptySet());
   private boolean allPairs = false;
   private int window = 2;
 
@@ -152,7 +165,7 @@ public class ThresholdClassifier {
     return documentCategories;
   }
 
-  private List<String> extractTerms(String document) {
+  public List<String> extractTerms(String document) {
     TokenStream stream = analyzer.tokenStream(null, new StringReader(document));
     TermAttribute termAtt = (TermAttribute) stream
         .addAttribute(TermAttribute.class);
@@ -285,4 +298,58 @@ public class ThresholdClassifier {
   public Analyzer getAnalyzer() {
     return analyzer;
   }
+
+  public OnlineLogisticRegression getModel() {
+    return model;
+  }
+
+  public static ThresholdClassifier getInstance(Configuration conf)
+      throws ClassNotFoundException, InstantiationException,
+      IllegalAccessException {
+    // seed the RNG used initialize the model parameters
+    Integer seed = conf.getInt("online.random.seed", 42);
+    Random rng = RandomUtils.getRandom(seed);
+
+    // load the list of category labels to look for
+    String categoriesParamValue = conf.get("wikipedia.categories", "");
+    List<String> categories = new ArrayList<String>();
+    for (String category : categoriesParamValue.split(",")) {
+      categories.add(category.toLowerCase().trim());
+    }
+
+    // load the randomizer that is used to hash the term of the document
+    int probes = conf.getInt("randomizer.probes", DEFAULT_NUM_PROBES);
+    int numFeatures = conf.getInt("randomizer.numFeatures",
+        DEFAULT_NUM_FEATURES);
+    TermRandomizer randomizer = new BinaryRandomizer(probes, numFeatures);
+    boolean allPairs = conf
+        .getBoolean("randomizer.allPairs", DEFAULT_ALL_PAIRS);
+    int window = conf.getInt("randomizer.window", DEFAULT_WINDOW);
+
+    // online learning parameters
+    double lambda = conf.getFloat("online.lambda", DEFAULT_LAMBDA);
+    double learningRate = conf.getFloat("online.learningRate",
+        DEFAULT_LEARNING_RATE);
+
+    Class<? extends PriorFunction> prior = Class.forName(
+        conf.get("online.priorClass", "org.apache.mahout.classifier.sgd.L1"))
+        .asSubclass(PriorFunction.class);
+    double[] thresholds = null;
+    if (conf.get("classifier.threshold") != null) {
+      double threshold = conf.getFloat("classifier.threshold", 0.0f);
+      thresholds = new double[categories.size()];
+      Arrays.fill(thresholds, threshold);
+    }
+
+    OnlineLogisticRegression model = new OnlineLogisticRegression(categories
+        .size() + 1, numFeatures, prior.newInstance(), rng).lambda(lambda)
+        .learningRate(learningRate);
+    model.setRandomizer(randomizer);
+    ThresholdClassifier classifier = new ThresholdClassifier(model, categories,
+        thresholds);
+    classifier.setAllPairs(allPairs);
+    classifier.setWindow(window);
+    return classifier;
+  }
+
 }

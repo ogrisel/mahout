@@ -23,7 +23,6 @@ import java.net.URI;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.List;
-import java.util.Random;
 
 import org.apache.commons.cli2.CommandLine;
 import org.apache.commons.cli2.Group;
@@ -51,14 +50,9 @@ import org.apache.hadoop.util.ReflectionUtils;
 import org.apache.hadoop.util.Tool;
 import org.apache.hadoop.util.ToolRunner;
 import org.apache.mahout.classifier.bayes.XmlInputFormat;
-import org.apache.mahout.classifier.sgd.BinaryRandomizer;
-import org.apache.mahout.classifier.sgd.OnlineLogisticRegression;
-import org.apache.mahout.classifier.sgd.PriorFunction;
-import org.apache.mahout.classifier.sgd.TermRandomizer;
 import org.apache.mahout.classifier.sgd.ThresholdClassifier;
 import org.apache.mahout.common.CommandLineUtil;
 import org.apache.mahout.common.FileLineIterable;
-import org.apache.mahout.common.RandomUtils;
 import org.apache.mahout.math.MultiLabelVectorWritable;
 import org.apache.mahout.math.Vector;
 import org.slf4j.Logger;
@@ -77,14 +71,14 @@ import org.slf4j.LoggerFactory;
  * co-occurrence of terms counts through a random function (a.k.a
  * TermRandomizer).
  */
-public final class WikipediaHashedDatasetCreatorDriver extends Configured
+public final class WikipediaOnlineClassificationDriver extends Configured
     implements Tool {
   private static final Logger log = LoggerFactory
-      .getLogger(WikipediaHashedDatasetCreatorDriver.class);
+      .getLogger(WikipediaOnlineClassificationDriver.class);
 
   public static void main(String[] args) throws Exception {
     int res = ToolRunner.run(new Configuration(),
-        new WikipediaHashedDatasetCreatorDriver(), args);
+        new WikipediaOnlineClassificationDriver(), args);
     System.exit(res);
   }
 
@@ -194,7 +188,7 @@ public final class WikipediaHashedDatasetCreatorDriver extends Configured
   public void runFeatureExtractionJob(String input, String output,
       String catFile) throws IOException {
     JobConf job = new JobConf(getConf(),
-        WikipediaHashedDatasetCreatorDriver.class);
+        WikipediaOnlineClassificationDriver.class);
     if (log.isInfoEnabled()) {
       log.info("Input: " + input + " Out: " + output + " Categories: "
           + catFile);
@@ -224,7 +218,7 @@ public final class WikipediaHashedDatasetCreatorDriver extends Configured
     JobClient.runJob(job);
   }
 
-  private List<String> readCategories(String catFile) throws IOException {
+  public List<String> readCategories(String catFile) throws IOException {
     List<String> categories = new ArrayList<String>();
     for (String line : new FileLineIterable(new File(catFile))) {
       categories.add(line.trim().toLowerCase());
@@ -232,15 +226,15 @@ public final class WikipediaHashedDatasetCreatorDriver extends Configured
     return categories;
   }
 
-  private void trainModel(String featuresPath, String modelPath)
+  public void trainModel(String featuresPath, String modelPath)
       throws ClassNotFoundException, InstantiationException,
       IllegalAccessException, IOException {
     Configuration conf = getConf();
-    ThresholdClassifier classifier = buildClassifier(conf);
+    ThresholdClassifier classifier = ThresholdClassifier.getInstance(conf);
     long updateScoreInterval = conf.getLong("online.updateScoreInterval", 5000);
-    long steps = 0;
-    int epochs = conf.getInt("online.epochs", 5);
+    int epochs = conf.getInt("online.epochs", 1);
     int epoch = 0;
+    long steps = 0;
 
     // read the extracted feature
     FileSystem fs = FileSystem.get(URI.create(featuresPath), conf);
@@ -276,46 +270,6 @@ public final class WikipediaHashedDatasetCreatorDriver extends Configured
     }
 
     // TODO: save the result
-  }
-
-  public ThresholdClassifier buildClassifier(Configuration conf)
-      throws ClassNotFoundException, InstantiationException,
-      IllegalAccessException {
-    // seed the RNG used to shuffle the instances (wikipedia articles come in
-    // Alphabetical order and that bias could harm the convergence of online
-    // learner that assume I.I.D. samples).
-    int seed = conf.getInt("online.random.seed", 42);
-    Random rng = RandomUtils.getRandom(seed);
-
-    // load the list of category labels to look for
-    String categoriesParamValue = conf.get("wikipedia.categories", "");
-    List<String> categories = new ArrayList<String>();
-    for (String category : categoriesParamValue.split(",")) {
-      categories.add(category.toLowerCase().trim());
-    }
-
-    // load the randomizer that is used to hash the term of the document
-    int probes = conf.getInt("randomizer.probes", 2);
-    int numFeatures = conf.getInt("randomizer.numFeatures", 80000);
-    TermRandomizer randomizer = new BinaryRandomizer(probes, numFeatures);
-    boolean allPairs = conf.getBoolean("randomizer.allPairs", false);
-    int window = conf.getInt("randomizer.window", 2);
-
-    // online learning parameters
-    double lambda = conf.getFloat("online.lambda", 0.01f);
-    double learningRate = conf.getFloat("online.learningRate", 0.01f);
-
-    Class<? extends PriorFunction> prior = Class.forName(
-        conf.get("online.priorClass", "org.apache.mahout.classifier.sgd.L1"))
-        .asSubclass(PriorFunction.class);
-    OnlineLogisticRegression model = new OnlineLogisticRegression(categories
-        .size() + 1, numFeatures, prior.newInstance(), rng).lambda(lambda)
-        .learningRate(learningRate);
-    model.setRandomizer(randomizer);
-    ThresholdClassifier classifier = new ThresholdClassifier(model, categories);
-    classifier.setAllPairs(allPairs);
-    classifier.setWindow(window);
-    return classifier;
   }
 
 }

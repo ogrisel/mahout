@@ -17,6 +17,8 @@
 
 package org.apache.mahout.analysis;
 
+import java.io.Reader;
+
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.CharArraySet;
 import org.apache.lucene.analysis.LowerCaseFilter;
@@ -25,8 +27,6 @@ import org.apache.lucene.analysis.StopFilter;
 import org.apache.lucene.analysis.TokenStream;
 import org.apache.lucene.analysis.standard.StandardFilter;
 import org.apache.lucene.wikipedia.analysis.WikipediaTokenizer;
-
-import java.io.Reader;
 
 public class WikipediaAnalyzer extends Analyzer {
 
@@ -45,7 +45,9 @@ public class WikipediaAnalyzer extends Analyzer {
     TokenStream result = new WikipediaTokenizer(reader);
     result = new StandardFilter(result);
     result = new LowerCaseFilter(result);
-    result = new StopFilter(true, result, stopSet);
+    if (stopSet != null) {
+      result = new StopFilter(true, result, stopSet);
+    }
     return result;
   }
 }
