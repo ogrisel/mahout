@@ -3,6 +3,8 @@ package org.apache.mahout.classifier.sgd;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Random;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import org.apache.mahout.common.RandomUtils;
 import org.apache.mahout.math.DenseMatrix;
@@ -50,6 +52,9 @@ public class OnlineLogisticRegression {
   // conversion from term lists to vectors
   private TermRandomizer randomizer;
 
+  // multi-core parallization of the update step
+  private final ExecutorService executor;
+
   public OnlineLogisticRegression(int numCategories, int numFeatures,
       PriorFunction prior) {
     this(numCategories, numFeatures, prior, RandomUtils.getRandom());
@@ -57,6 +62,7 @@ public class OnlineLogisticRegression {
 
   public OnlineLogisticRegression(int numCategories, int numFeatures,
       PriorFunction prior, Random rng) {
+    executor = Executors.newCachedThreadPool();
     this.numCategories = numCategories;
     this.prior = prior;
 
@@ -199,13 +205,49 @@ public class OnlineLogisticRegression {
     if (probabilities == null) {
       probabilities = classify(instance);
     }
-
     double learningRate = currentLearningRate();
 
-    // update each row of coefficients according to result
+    // parallel update each row of coefficients according to result
     for (int i = 0; i < numCategories - 1; i++) {
-      double gradientBase = -probabilities.getQuick(i);
-      if ((i + 1) == actual) {
+      executor.execute(new UpdateTask(actual, instance, probabilities,
+          learningRate, i));
+    }
+//    try {
+//      executor.awaitTermination(100 , TimeUnit.SECONDS);
+//    } catch (InterruptedException e) {
+//      throw new IllegalStateException(e);
+//    }
+
+    // TODO can report log likelihood here
+
+    // increment step after the update to ensure that lazy regularization
+    // that happens at classification plays well, e.s.p. for sparsity inducing
+    // priors
+    step++;
+  }
+
+  private class UpdateTask implements Runnable {
+
+    final int expectedCategoryIndex;
+    final int categoryIndexToUpdate;
+    final Vector instance;
+    final Vector probabilities;
+    double learningRate;
+
+    public UpdateTask(int expectedCategoryIndex, Vector instance,
+        Vector probabilities, double learningRate, int categoryIndexToUpdate) {
+      this.expectedCategoryIndex = expectedCategoryIndex;
+      this.instance = instance;
+      this.probabilities = probabilities;
+      this.learningRate = learningRate;
+      this.categoryIndexToUpdate = categoryIndexToUpdate;
+    }
+
+    @Override
+    public void run() {
+
+      double gradientBase = -probabilities.getQuick(categoryIndexToUpdate);
+      if ((categoryIndexToUpdate + 1) == expectedCategoryIndex) {
         gradientBase += 1;
       }
 
@@ -214,17 +256,11 @@ public class OnlineLogisticRegression {
       while (nonZeros.hasNext()) {
         Vector.Element element = nonZeros.next();
         int j = element.index();
-        beta.setQuick(i, j, beta.getQuick(i, j) + learningRate * gradientBase
-            * element.get());
+        beta.setQuick(categoryIndexToUpdate, j, beta.getQuick(
+            categoryIndexToUpdate, j)
+            + learningRate * gradientBase * element.get());
       }
     }
-
-    // TODO can report log likelihood here
-
-    // increment step after the update to ensure that lazy regularization
-    // that happens at classification plays well, e.s.p. for sparsity inducing
-    // priors
-    step++;
   }
 
   private void regularize(Vector instance) {
@@ -286,4 +322,5 @@ public class OnlineLogisticRegression {
   public TermRandomizer getRandomizer() {
     return randomizer;
   }
+
 }
