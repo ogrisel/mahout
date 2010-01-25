@@ -1,16 +1,16 @@
 package org.apache.mahout.classifier.sgd;
 
+import java.util.List;
+
 import org.apache.mahout.math.RandomAccessSparseVector;
 import org.apache.mahout.math.Vector;
-
-import java.util.List;
 
 /**
  * Multiplies a sparse vector in the form of a term list by a random binary matrix.
  */
 public class BinaryRandomizer extends TermRandomizer {
-  private int probes;
-  private int numFeatures;
+  private final int probes;
+  private final int numFeatures;
 
   public BinaryRandomizer(int probes, int numFeatures) {
     this.probes = probes;
@@ -24,14 +24,14 @@ public class BinaryRandomizer extends TermRandomizer {
     for (String term : terms) {
       for (int probe = 0; probe < getProbes(); probe++) {
         int i = hash(term, probe, getNumFeatures());
-        instance.setQuick(i, instance.get(i) + 1);
+        instance.setQuick(i, instance.getQuick(i) + 1);
       }
 
       if (allPairs) {
         for (String other : terms) {
           for (int probe = 0; probe < getProbes(); probe++) {
             int i = hash(term, other, probe, getNumFeatures());
-            instance.setQuick(i, instance.get(i) + 1);
+            instance.setQuick(i, instance.getQuick(i) + 1);
           }
         }
       }
@@ -40,7 +40,7 @@ public class BinaryRandomizer extends TermRandomizer {
         for (int j = Math.max(0, n - window); j < n; j++) {
           for (int probe = 0; probe < getProbes(); probe++) {
             int i = hash(term, terms.get(j), probe, getNumFeatures());
-            instance.setQuick(i, instance.get(i) + 1);
+            instance.setQuick(i, instance.getQuick(i) + 1);
           }
         }
       }

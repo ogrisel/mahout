@@ -236,7 +236,7 @@ public class OnlineLogisticRegression {
       Iterator<Vector.Element> nonZeros = instance.iterateNonZero();
       while (nonZeros.hasNext()) {
         int j = nonZeros.next().index();
-        double missingUpdates = step - updateSteps.get(j);
+        double missingUpdates = step - updateSteps.getQuick(j);
         if (missingUpdates > 0) {
           // TODO can we put confidence weighting here or use per feature
           // annealing?
