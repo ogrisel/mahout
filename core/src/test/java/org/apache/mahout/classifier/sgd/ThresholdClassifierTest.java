@@ -97,26 +97,28 @@ public class ThresholdClassifierTest {
   public void testThresholdClassifier() {
     int numFeatures = 1000;
 
-    OnlineLogisticRegression model = new OnlineLogisticRegression(categories
-        .size() + 1, numFeatures, new L1()).lambda(0.01).learningRate(0.01);
-    model.setRandomizer(new BinaryRandomizer(2, numFeatures));
-    ThresholdClassifier classifier = new ThresholdClassifier(model, categories);
+    OnlineLogisticRegression[] models = new OnlineLogisticRegression[categories
+        .size()];
+    BinaryRandomizer randomizer = new BinaryRandomizer(2, numFeatures);
+    for (int i = 0; i < categories.size(); i++) {
+      models[i] = new OnlineLogisticRegression(2, numFeatures, new L1())
+          .lambda(0.01).learningRate(0.01);
+      models[i].setRandomizer(randomizer);
+    }
+    ThresholdClassifier classifier = new ThresholdClassifier(models, categories);
 
     // compute F1 measure on untrained model
     classifier.resetEvaluation();
     for (int i = 0; i < documents.size(); i++) {
       classifier.evaluate(documents.get(i), labels.get(i));
     }
-    // the default precision is poor because of Annette
-    assertEquals(0.31, classifier.getCurrentEvaluation().meanPrecision, 0.01);
-    // the recall is somewhat higher since the default threshold are low enough
-    assertEquals(0.72, classifier.getCurrentEvaluation().meanRecall, 0.01);
-    // the F1 score is low because of the poor random precision
-    assertEquals(0.41, classifier.getCurrentEvaluation().meanF1Score, 0.01);
+    assertEquals(0.33, classifier.getCurrentEvaluation().meanPrecision, 0.01);
+    assertEquals(0.39, classifier.getCurrentEvaluation().meanRecall, 0.01);
+    assertEquals(0.36, classifier.getCurrentEvaluation().meanF1Score, 0.01);
 
     // train on dataset scanning the data several consecutive time to ensure
     // convergence
-    for (int e = 1; e <= 20; e++) {
+    for (int e = 1; e <= 10; e++) {
       for (int i = 0; i < documents.size(); i++) {
         classifier.train(documents.get(i), labels.get(i));
       }

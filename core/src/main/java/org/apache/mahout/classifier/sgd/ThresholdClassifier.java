@@ -21,7 +21,6 @@ import java.io.IOException;
 import java.io.StringReader;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -36,19 +35,17 @@ import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.analysis.tokenattributes.TermAttribute;
 import org.apache.lucene.util.Version;
 import org.apache.mahout.common.RandomUtils;
+import org.apache.mahout.math.DenseVector;
 import org.apache.mahout.math.Matrix;
 import org.apache.mahout.math.Vector;
 
 /**
  * Wrapper to categorize a document if the probability of a category is higher
- * than a given value. If no probability thresholds are given, they are set to
- * (1 / (numCategories + 1).
+ * than a given value. If no probability thresholds are given they are all set
+ * to 0.5 by default.
  *
- * When classifying a document, the underlying model returns the probability for
- * the no-category case as the first component of the probabilities vector.
- *
- * With this scheme a single document can be assigned 0, 1 or several
- * categories.
+ * The categories probabilities are assumed to be independents. With this scheme
+ * a single document can be assigned 0, 1 or several categories.
  */
 public class ThresholdClassifier {
 
@@ -60,7 +57,7 @@ public class ThresholdClassifier {
   public static final boolean DEFAULT_ALL_PAIRS = false;
   private static final float DEFAULT_ALPHA = 1.0f - 1e-5f;
 
-  private final OnlineLogisticRegression model;
+  private final OnlineLogisticRegression[] models;
   private final List<String> allCategories;
   private Analyzer analyzer = new StandardAnalyzer(Version.LUCENE_CURRENT,
       Collections.emptySet());
@@ -71,46 +68,56 @@ public class ThresholdClassifier {
   private final long[] truePositiveCount;
   private final long[] falsePositiveCount;
   private final long[] falseNegativeCount;
+  private final DenseVector precomputedProbs;
+  private final long[] negativeSupport;
+  private final long[] positiveSupport;
 
-  public ThresholdClassifier(OnlineLogisticRegression model) {
-    this(model, null, null);
+  public ThresholdClassifier(OnlineLogisticRegression[] models) {
+    this(models, null, null);
   }
 
-  public ThresholdClassifier(OnlineLogisticRegression model,
+  public ThresholdClassifier(OnlineLogisticRegression[] models,
       List<String> categories) {
-    this(model, categories, null);
+    this(models, categories, null);
   }
 
-  public ThresholdClassifier(OnlineLogisticRegression model,
+  public ThresholdClassifier(OnlineLogisticRegression[] models,
       List<String> categories, double[] thresholds) {
-    this.model = model;
-    int numCategoriesAcceptedByModel = model.getBeta().numRows();
+    this.models = models;
+    for (OnlineLogisticRegression model : models) {
+      if (model.getBeta().numRows() != 1) {
+        throw new IllegalArgumentException(String.format(
+            "Classifier expects models with a single row, got %d", model
+                .getBeta().numRows()));
+      }
+    }
     if (categories == null) {
-      categories = new ArrayList<String>(numCategoriesAcceptedByModel);
-      for (int i = 1; i <= numCategoriesAcceptedByModel; i++) {
+      categories = new ArrayList<String>(models.length);
+      for (int i = 1; i <= models.length; i++) {
         categories.add(String.format("Category #", i));
+      }
+    } else {
+      if (categories.size() != models.length) {
+        throw new IllegalArgumentException(String.format(
+            "Classifier need %d models, got %d", categories.size(),
+            models.length));
       }
     }
     this.allCategories = categories;
     int numCategories = categories.size();
-    if (numCategories != numCategoriesAcceptedByModel) {
-      throw new IllegalArgumentException(String.format(
-          "Model %s accepts %d categories, not %d", model,
-          numCategoriesAcceptedByModel, numCategories));
-    }
     if (thresholds == null) {
-      double threshold = 1.0 / (numCategories + 1);
       this.thresholds = new double[numCategories];
-      for (int i = 0; i < numCategories; i++) {
-        this.thresholds[i] = threshold;
-      }
+      Arrays.fill(this.thresholds, 0.5);
     } else {
       this.thresholds = thresholds;
     }
+    precomputedProbs = new DenseVector(numCategories);
     truePositiveCount = new long[numCategories];
     falsePositiveCount = new long[numCategories];
     falseNegativeCount = new long[numCategories];
     resetEvaluation();
+    negativeSupport = new long[numCategories];
+    positiveSupport = new long[numCategories];
   }
 
   /**
@@ -123,30 +130,48 @@ public class ThresholdClassifier {
    * @param expectedCategories
    *          the category names of the document
    */
-  public void train(String document, Collection<String> categories) {
-    Vector instance = model.getRandomizer().randomizedInstance(
+  public void train(String document, Set<String> categories) {
+    // all models are assumed to share the same randomizer
+    Vector instance = models[0].getRandomizer().randomizedInstance(
         extractTerms(document), window, allPairs);
-    if (categories.isEmpty()) {
-      // use special category index 0 for purely negative examples
-      model.train(0, instance);
-    } else {
-      for (String c : categories) {
-        model.train(allCategories.indexOf(c) + 1, instance);
+    for (int i = 0; i < models.length; i++) {
+      if (categories.contains(allCategories.get(i))) {
+        models[i].train(1, instance);
+      } else {
+        models[i].train(0, instance);
       }
     }
   }
 
+  /**
+   * Train the models for a given instance.
+   *
+   * @param instance
+   *          a vector representation of the instance
+   * @param labels
+   *          the sorted list of category indices for the instance
+   */
   public void train(Vector instance, int[] labels) {
-    train(instance, labels, null);
+    for (int i = 0; i < models.length; i++) {
+      if (Arrays.binarySearch(labels, i) != -1) {
+        models[i].train(1, instance);
+      } else {
+        models[i].train(0, instance);
+      }
+    }
   }
 
-  public void train(Vector instance, int[] labels, Vector probabilities) {
-    if (labels.length == 0) {
-      // use special category index 0 for purely negative examples
-      model.train(0, instance, probabilities);
-    } else {
-      for (int label : labels) {
-        model.train(label + 1, instance, probabilities);
+  private void trainPrecomputed(Vector instance, int[] labels) {
+    for (int i = 0; i < models.length; i++) {
+      if (Arrays.binarySearch(labels, i) != -1) {
+        positiveSupport[i]++;
+        models[i].train(1, instance, precomputedProbs.viewPart(i, 1));
+      } else {
+        if (positiveSupport[i] >= negativeSupport[i]) {
+          // avoid being overwhelmed by only negative examples
+          negativeSupport[i]++;
+          models[i].train(0, instance, precomputedProbs.viewPart(i, 1));
+        }
       }
     }
   }
@@ -159,11 +184,13 @@ public class ThresholdClassifier {
    * @return the possibly empty list of matching category names
    */
   public Set<String> classify(String document) {
-    Vector probabilities = model.classify(extractTerms(document), window,
-        allPairs);
+    // all models are assumed to share the same randomizer
+    Vector instance = models[0].getRandomizer().randomizedInstance(
+        extractTerms(document), window, allPairs);
     Set<String> documentCategories = new LinkedHashSet<String>();
     for (int i = 0; i < allCategories.size(); i++) {
-      if (probabilities.get(i) > thresholds[i]) {
+      double prob = models[i].classify(instance).get(0);
+      if (prob > thresholds[i]) {
         documentCategories.add(allCategories.get(i));
       }
     }
@@ -205,12 +232,11 @@ public class ThresholdClassifier {
    *          a vectorized instance to classify
    * @param expectedLabels
    *          the expected category indices for this instance
-   * @return the vector of classification probabilities
    */
-  public Vector evaluate(Vector instance, int[] expectedLabels) {
-    Vector probabilities = model.classify(instance);
+  public void evaluate(Vector instance, int[] expectedLabels) {
     for (int i = 0; i < thresholds.length; i++) {
-      if (probabilities.get(i) > thresholds[i]) {
+      double prob = models[i].classify(instance).get(0);
+      if (prob > thresholds[i]) {
         if (ArrayUtils.contains(expectedLabels, i)) {
           truePositiveCount[i] += 1;
         } else {
@@ -221,8 +247,8 @@ public class ThresholdClassifier {
           falseNegativeCount[i] += 1;
         }
       }
+      precomputedProbs.setQuick(i, prob);
     }
-    return probabilities;
   }
 
   /**
@@ -230,14 +256,17 @@ public class ThresholdClassifier {
    * Progressive Validation with minimum computational overhead (the
    * classification step is shared).
    *
+   * Warning: this method is not thread safe because of the updates to the
+   * precomputedProbs shared fields.
+   *
    * @param instance
    *          a vectorized instance to classify
    * @param expectedLabels
    *          the expected category indices for this instance
    */
   public void evaluateAndTrain(Vector instance, int[] expectedLabels) {
-    Vector precomputedProbabilities = evaluate(instance, expectedLabels);
-    train(instance, expectedLabels, precomputedProbabilities);
+    evaluate(instance, expectedLabels);
+    trainPrecomputed(instance, expectedLabels);
   }
 
   /**
@@ -286,11 +315,12 @@ public class ThresholdClassifier {
    */
   public double density() {
     double count = 0.0;
-    Matrix beta = model.getBeta();
-    for (int row = 0; row < beta.numRows(); row++) {
-      count += beta.getRow(row).norm(0.0);
+    // all models are assumed to have a single row
+    for (OnlineLogisticRegression model : models) {
+      count += model.getBeta().getRow(0).norm(0.0);
     }
-    return count / (beta.numCols() * beta.numRows());
+    Matrix beta = models[0].getBeta();
+    return count / (beta.numCols() * models.length);
   }
 
   public boolean isAllPairs() {
@@ -321,8 +351,8 @@ public class ThresholdClassifier {
     return analyzer;
   }
 
-  public OnlineLogisticRegression getModel() {
-    return model;
+  public OnlineLogisticRegression[] getModels() {
+    return models;
   }
 
   public static ThresholdClassifier getInstance(Configuration conf)
@@ -364,12 +394,17 @@ public class ThresholdClassifier {
       Arrays.fill(thresholds, threshold);
     }
 
-    OnlineLogisticRegression model = new OnlineLogisticRegression(categories
-        .size() + 1, numFeatures, prior.newInstance(), rng).lambda(lambda)
-        .learningRate(learningRate).alpha(alpha);
-    model.setRandomizer(randomizer);
-    ThresholdClassifier classifier = new ThresholdClassifier(model, categories,
-        thresholds);
+    // build an array of identical binary classifiers
+    OnlineLogisticRegression[] models = new OnlineLogisticRegression[categories
+        .size()];
+    for (int i = 0; i < categories.size(); i++) {
+      models[i] = new OnlineLogisticRegression(2, numFeatures, prior
+          .newInstance(), rng).lambda(lambda).learningRate(learningRate).alpha(
+          alpha);
+      models[i].setRandomizer(randomizer);
+    }
+    ThresholdClassifier classifier = new ThresholdClassifier(models,
+        categories, thresholds);
     classifier.setAllPairs(allPairs);
     classifier.setWindow(window);
     return classifier;

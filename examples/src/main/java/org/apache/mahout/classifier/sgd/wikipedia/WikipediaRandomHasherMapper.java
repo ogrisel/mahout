@@ -99,7 +99,7 @@ public class WikipediaRandomHasherMapper extends MapReduceBase implements
     try {
       ThresholdClassifier classifier = ThresholdClassifier
           .getInstance(new Configuration(job));
-      randomizer = classifier.getModel().getRandomizer();
+      randomizer = classifier.getModels()[0].getRandomizer();
       allPairs = classifier.isAllPairs();
       window = classifier.getWindow();
       allCategories = classifier.getCategories();
