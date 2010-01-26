@@ -19,6 +19,10 @@ public class L2 extends PriorFunction {
 
   private final double s;
 
+  public L2() {
+    this(1.0);
+  }
+
   public L2(double scale) {
     this.s = scale;
     this.s2 = scale * scale;

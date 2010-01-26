@@ -12,6 +12,10 @@ import static org.apache.commons.math.special.Gamma.logGamma;
 public class TPrior extends PriorFunction {
   private final double df;
 
+  public TPrior() {
+    this(2);
+  }
+
   public TPrior(double df) {
     this.df = df;
   }
