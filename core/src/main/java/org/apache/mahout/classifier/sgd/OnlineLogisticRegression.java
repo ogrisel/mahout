@@ -192,7 +192,8 @@ public class OnlineLogisticRegression {
    * @param instance
    *          The feature vector for the instance.
    * @param probabilities
-   *          Pre-computed probabilities (optional)
+   *          Pre-computed probabilities (optional, useful to implement
+   *          progressive )
    */
   public void train(int actual, Vector instance, Vector probabilities) {
     // what does the current model say?
