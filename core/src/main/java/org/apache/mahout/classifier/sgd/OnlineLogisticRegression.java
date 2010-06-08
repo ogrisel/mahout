@@ -17,13 +17,13 @@
 
 package org.apache.mahout.classifier.sgd;
 
+import java.util.Iterator;
+
 import org.apache.mahout.math.DenseMatrix;
 import org.apache.mahout.math.DenseVector;
 import org.apache.mahout.math.Matrix;
 import org.apache.mahout.math.Vector;
 import org.apache.mahout.math.function.Functions;
-
-import java.util.Iterator;
 
 /**
  * Generic definition of a 1 of n logistic regression classifier that returns probabilities in
@@ -42,7 +42,7 @@ public class OnlineLogisticRegression {
 
   // information about how long since coefficient rows were updated
   private int step = 0;
-  private Vector updateSteps;
+  private final Vector updateSteps;
 
   // these next two control decayFactor^steps exponential type of annealing
   // learning rate and decay factor
@@ -211,7 +211,7 @@ public class OnlineLogisticRegression {
 
     Vector r = new DenseVector(data.numRows());
     for (int row = 0; row < data.numRows(); row++) {
-      r.set(row, classifyScalar(data.getRow(row)));
+      r.setQuick(row, classifyScalar(data.getRow(row)));
     }
     return r;
   }
@@ -245,7 +245,7 @@ public class OnlineLogisticRegression {
       while (nonZeros.hasNext()) {
         Vector.Element updateLocation = nonZeros.next();
         int j = updateLocation.index();
-        beta.set(i, j, beta.get(i, j) + learningRate * gradientBase * instance.get(j));
+        beta.setQuick(i, j, beta.getQuick(i, j) + learningRate * gradientBase * instance.getQuick(j));
       }
     }
 
@@ -259,7 +259,7 @@ public class OnlineLogisticRegression {
       updateSteps.setQuick(element.index(), step);
     }
     step++;
-    
+
   }
 
   private void regularize(Vector instance) {
@@ -272,11 +272,11 @@ public class OnlineLogisticRegression {
       while (nonZeros.hasNext()) {
         Vector.Element updateLocation = nonZeros.next();
         int j = updateLocation.index();
-        double missingUpdates = step - updateSteps.get(j);
+        double missingUpdates = step - updateSteps.getQuick(j);
         if (missingUpdates > 0) {
           // TODO can we put confidence weighting here or use per feature annealing?
-          double newValue = prior.age(beta.get(i, j), missingUpdates, lambda * learningRate);
-          beta.set(i, j, newValue);
+          double newValue = prior.age(beta.getQuick(i, j), missingUpdates, lambda * learningRate);
+          beta.setQuick(i, j, newValue);
         }
       }
     }
