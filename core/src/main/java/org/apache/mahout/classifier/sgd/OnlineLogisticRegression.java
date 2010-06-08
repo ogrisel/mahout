@@ -263,6 +263,11 @@ public class OnlineLogisticRegression {
   }
 
   private void regularize(Vector instance) {
+    if (lambda == 0.0 || prior == null) {
+      // no need to regularize
+      return;
+    }
+
     // anneal learning rate
     double learningRate = currentLearningRate();
 
