@@ -1,11 +1,11 @@
 package org.apache.mahout.classifier.sgd;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.fail;
+
 import org.apache.mahout.math.DenseVector;
 import org.apache.mahout.math.Vector;
 import org.junit.Test;
-
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.fail;
 
 public class ContinuousValueEncoderTest {
   @Test
@@ -36,7 +36,7 @@ public class ContinuousValueEncoderTest {
     enc.addToVector("7", v1);
     assertEquals(30, v1.maxValue(), 0);
     assertEquals(2 * 30, v1.norm(1), 0);
-    assertEquals(30, v1.get(5), 0);
+    assertEquals(0, v1.get(5), 0);
     assertEquals(30, v1.get(18), 0);
 
     try {
